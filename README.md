@@ -19,7 +19,7 @@
 |                                                                               |
 |  Sensors [D] ---> [ 4x Non-Linear Gates: Sigmoid & Tanh ]                     |
 |                   [ Large Hidden Matrices W_hh (H x H)  ]                     |
-|                   [ Exponential Memory Decay O(e^-at)   ] ---> Hidden H [64]  |
+|                   [ Exponential Memory Decay ~ exp(-a*t)   ] ---> Hidden H [64]  |
 |                   [ Requires 32 KB - 128 KB SRAM / TFLM ]      (32,768 Bytes) |
 +-------------------------------------------------------------------------------+
                                        |
@@ -30,7 +30,7 @@
 |                                                                               |
 |  Sensors [D] ---> [ Depthwise Shifted Chebyshev Recurrence ]                  |
 |                   [ Linear Discretized Operator A_bar, B_bar ]                |
-|                   [ Minimax Optimal / Polynomial Decay O(1/t)]                |
+|                   [ Minimax Optimal / Polynomial Decay O(1/t) ]               |
 |                   [ Single Header C99, Zero malloc, Re-entrant]               |
 |                                                                               |
 |  14 Sensors x Order 8 State = 112 float32 coefficients --------> Readout MLP  |
@@ -247,7 +247,7 @@ A_{j, k} = \begin{cases}
 \end{cases}, \quad B_j = (-1)^j \cdot 2
 $$
 
-#### 2. Tustin Bilinear Discretization ($\Delta t = 1.0$)
+#### 2. Tustin Bilinear Discretization (Δt = 1.0)
 
 $$
 \bar{A} = \left(I - \frac{\Delta t}{2\theta} A\right)^{-1} \left(I + \frac{\Delta t}{2\theta} A\right)
@@ -260,13 +260,13 @@ $$
 #### 3. Depthwise Multi-Channel Step
 
 $$
-\mathbf{c}_d[t] = \bar{A} \mathbf{c}_d[t-1] + \bar{B} \cdot \operatorname{clamp}\left(\frac{u_d[t] - \mu_d}{\sigma_d}, -5.0, 5.0\right)
+\mathbf{c}_d[t] = \bar{A} \mathbf{c}_d[t-1] + \bar{B} \cdot \mathrm{clamp}\!\left(\frac{u_d[t] - \mu_d}{\sigma_d},\; -5.0,\; 5.0\right)
 $$
 
 #### 4. Prediction Readout
 
 $$
-\hat{y}[t] = W_2 \cdot \operatorname{ReLU}\left(W_1 \operatorname{vec}(\mathbf{C}[t]) + b_1\right) + b_2
+\hat{y}[t] = W_2 \cdot \mathrm{ReLU}\!\left(W_1\, \mathrm{vec}(\mathbf{C}[t]) + b_1\right) + b_2
 $$
 
 ---
