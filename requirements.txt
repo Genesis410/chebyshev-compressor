@@ -1,0 +1,6 @@
+# Core production dependencies for Chebyshev-Compressor
+# Note: For fast installation without multi-GB CUDA downloads, install PyTorch CPU first:
+# pip install torch --index-url https://download.pytorch.org/whl/cpu
+torch>=2.0.0
+numpy>=1.24.0
+tqdm>=4.65.0

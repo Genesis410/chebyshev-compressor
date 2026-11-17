@@ -1,0 +1,63 @@
+{
+  "project": "chebyshev-compressor",
+  "version": "0.1.0",
+  "timestamp_utc": "2026-11-17T14:52:23.641063+00:00",
+  "seed": 42,
+  "environment": {
+    "os": "Windows-11-10.0.26200-SP0",
+    "python_version": "3.14.7",
+    "torch_version": "2.14.0+cpu",
+    "numpy_version": "2.5.2",
+    "compiler": "gcc.EXE (x86_64-posix-seh-rev0, Built by MinGW-Builds project) 16.1.0",
+    "compiler_path": "C:\\ProgramData\\mingw64\\mingw64\\bin\\gcc.EXE"
+  },
+  "hyperparameters": {
+    "num_channels": 14,
+    "order": 8,
+    "hidden_dim": 32,
+    "window_size": 30.0,
+    "teacher_hidden_dim": 32,
+    "teacher_layers": 2,
+    "smoke_epochs": 5
+  },
+  "benchmark_metrics": {
+    "c_latency_us": 5.5172,
+    "pt_latency_us": 1020.4290999681689,
+    "speedup_x": 184.95416152544206,
+    "ram_bytes": 448,
+    "ram_reduction_pct": 98.6328125
+  },
+  "artifacts": {
+    "teacher.pt": {
+      "size_bytes": 62085,
+      "sha256": "a20037ed61d9bb056d260f058c31d3ae74669a9b9210d84df31d3785ec2f64cd",
+      "crc32": "0x2B664ED5U",
+      "modified_iso": "2026-11-17T14:52:17.807748+00:00"
+    },
+    "student.pt": {
+      "size_bytes": 18189,
+      "sha256": "ba61002b221c1c3d7d2324919a5d96a933172e20f2097c082bd1868444705dc3",
+      "crc32": "0x6BEAE8C5U",
+      "modified_iso": "2026-11-17T14:52:18.171650+00:00"
+    },
+    "calib.npy": {
+      "size_bytes": 240,
+      "sha256": "76c6a960cce70d8595679a3a3dde5333be388cf4a449979d1bc2be86c159494e",
+      "crc32": "0xAA7A94E8U",
+      "modified_iso": "2026-11-17T14:52:10.185681+00:00"
+    },
+    "chebyshev_engine.h": {
+      "size_bytes": 63209,
+      "sha256": "ad7d5287b92b9a3acb394429682fcf533baaa4f509eabae4609be3f8b4e46324",
+      "crc32": "0xC6CFE512U",
+      "modified_iso": "2026-11-17T14:52:18.185206+00:00"
+    },
+    "benchmark_results.json": {
+      "size_bytes": 480,
+      "sha256": "705d236dcd8a0c0c6c02bad91e8a8017bdb5a8cedc8eacbb3a9fb09ec634263f",
+      "crc32": "0xED06E5FFU",
+      "modified_iso": "2026-11-17T14:52:23.508053+00:00"
+    }
+  },
+  "metadata": {}
+}

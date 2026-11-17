@@ -1,0 +1,19 @@
+{
+  "c_metrics": {
+    "iterations": 100000,
+    "total_time_sec": 0.551723,
+    "latency_us": 5.5172,
+    "latency_ns": 5517.23,
+    "throughput_steps_sec": 181250.3,
+    "ram_bytes": 448,
+    "checksum": "0x799680DB"
+  },
+  "pt_metrics": {
+    "steps": 1000,
+    "total_time_sec": 1.0204290999681689,
+    "latency_us": 1020.4290999681689,
+    "throughput_steps_sec": 979.9798928031295
+  },
+  "speedup_x": 184.95416152544206,
+  "ram_reduction_pct": 98.6328125
+}

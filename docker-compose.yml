@@ -1,0 +1,20 @@
+version: "3.8"
+
+services:
+  test:
+    build: .
+    volumes:
+      - .:/workspace
+    command: pytest tests/ -v
+
+  smoke:
+    build: .
+    volumes:
+      - .:/workspace
+    command: python -m chebyshev.cli --smoke-test --seed 42
+
+  benchmark:
+    build: .
+    volumes:
+      - .:/workspace
+    command: python -m chebyshev.cli benchmark
