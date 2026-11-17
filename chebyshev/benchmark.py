@@ -17,8 +17,18 @@ def generate_c_benchmark_harness_source(header_filename: str = "chebyshev_engine
  * Measures raw single-thread execution latency without Python/FFI overhead.
  */
 
+#if !defined(_WIN32)
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 199309L
+#endif
+#ifndef _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE
+#endif
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include "{header_filename}"
 
 #if defined(_WIN32)
@@ -30,7 +40,6 @@ static inline double get_time_sec(void) {{
     return (double)counter.QuadPart / (double)freq.QuadPart;
 }}
 #else
-#include <time.h>
 static inline double get_time_sec(void) {{
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -144,11 +153,11 @@ def run_c_benchmark(
                 compiler_bin,
                 "-std=c99",
                 "-O3",
-                "-march=native",
                 f"-I{include_dir}",
                 str(src_path),
                 "-o",
                 str(exe_path),
+                "-lm",
             ]
         else:  # MSVC
             cmd = [

@@ -75,7 +75,7 @@ static inline float chebyshev_sanitize(float x) {
 ```
 
 ### Rule 5: Parity Invariance ($\max |y_{\text{PyTorch}} - y_{\text{C}}| < 10^{-4}$)
-Any modification to `StudentModel` forward logic in [models.py](file:///c:/Users/LENOVO%20THINKPAD/Documents/Project/Chebshev/chebyshev/models.py) must be matched by an identical update to [exporter.py](file:///c:/Users/LENOVO%20THINKPAD/Documents/Project/Chebshev/chebyshev/exporter.py). The automated test [test_export_c.py](file:///c:/Users/LENOVO%20THINKPAD/Documents/Project/Chebshev/tests/test_export_c.py) verifies that after 1,000 steps of dynamic signals, impulses, and NaN injections, the discrepancy between PyTorch and native compiled C99 remains strictly below $10^{-4}$.
+Any modification to `StudentModel` forward logic in [models.py](chebyshev/models.py) must be matched by an identical update to [exporter.py](chebyshev/exporter.py). The automated test [test_export_c.py](tests/test_export_c.py) verifies that after 1,000 steps of dynamic signals, impulses, and NaN injections, the discrepancy between PyTorch and native compiled C99 remains strictly below $10^{-4}$.
 
 ### Rule 6: Minimal Dependencies
 The core package runtime must strictly depend only on:
@@ -143,13 +143,13 @@ python -m chebyshev.cli --smoke-test --seed 42
    - `feat/feature-name` for new features or hardware targets
    - `fix/bug-description` for bug fixes
    - `docs/topic-name` for documentation improvements
-2. **Issue Specification**: Reference existing issues in `.scratch/chebyshev-compressor/issues/` or create one following [issue-tracker.md](file:///c:/Users/LENOVO%20THINKPAD/Documents/Project/Chebshev/docs/agents/issue-tracker.md).
+2. **Issue Specification**: Reference existing issues in `.scratch/chebyshev-compressor/issues/` or create one following [issue-tracker.md](docs/agents/issue-tracker.md).
 3. **PR Verification Checklist**:
    - [ ] All 32 automated tests in `tests/` pass.
    - [ ] Parity between PyTorch and C99 is preserved ($\le 10^{-4}$).
    - [ ] C code passes `-Wall -Wextra -Werror -pedantic -std=c99`.
    - [ ] No heap allocations (`malloc`, `free`) added to C runtime.
    - [ ] Deterministic seed behavior preserved.
-   - [ ] Domain terminology adheres to [GLOSSARY.md](file:///c:/Users/LENOVO%20THINKPAD/Documents/Project/Chebshev/GLOSSARY.md).
+   - [ ] Domain terminology adheres to [GLOSSARY.md](GLOSSARY.md).
 
 Thank you for helping push the boundaries of embedded neural compression!
