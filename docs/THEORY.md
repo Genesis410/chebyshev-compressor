@@ -6,10 +6,10 @@ This whitepaper details the mathematical derivation, approximation theory, and d
 
 ## 1. The Continuous-Time Memory Problem
 
-Let $u(t) \in \mathbb{R}$ denote a continuous-time real-valued sensor signal. An ideal continuous memory mechanism maintaining history over a sliding temporal window $[t - \theta, t]$ of duration $\theta > 0$ must track the historical trajectory function:
+Let $u(t) \in \mathbb{R}$ denote a continuous-time real-valued sensor signal. An ideal continuous memory mechanism maintaining history over a sliding temporal window $$[t - \theta, t]$$ of duration $\theta > 0$ must track the historical trajectory function:
 $$f_t(\tau) = u(t - \tau), \quad \tau \in [0, \theta]$$
 
-where $\tau = 0$ corresponds to the immediate present ($u(t)$) and $\tau = \theta$ represents the oldest preserved historical observation ($u(t - \theta)$).
+where $\tau = 0$ corresponds to the immediate present $$($u(t)$) and $\tau = \theta$$ represents the oldest preserved historical observation ($u(t - \theta)$).
 
 In conventional Recurrent Neural Networks (RNNs, LSTMs, GRUs), this historical function is compressed heuristically into a latent state vector $h_t \in \mathbb{R}^H$ through parameterized non-linear transitions:
 $$h_{t+1} = \tanh(W_h h_t + W_x x_{t+1} + b)$$
