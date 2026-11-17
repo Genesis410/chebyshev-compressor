@@ -124,10 +124,9 @@ pytest tests/ -v
 ### Run Strict C99 Compiler Check
 Ensure that the exported C header compiles without any warnings under maximum strictness:
 ```bash
-# On Linux / macOS / MinGW:
-gcc -std=c99 -Wall -Wextra -Werror -pedantic -c cheb_out/chebyshev_engine.h -o /dev/null
-# On Windows MinGW:
-gcc -std=c99 -Wall -Wextra -Werror -pedantic -c cheb_out/chebyshev_engine.h -o NUL
+# Valid for Linux, macOS, and Windows MinGW:
+gcc -x c -std=c99 -Wall -Wextra -Werror -pedantic -fsyntax-only cheb_out/chebyshev_engine.h
+clang -x c -std=c99 -Wall -Wextra -Werror -pedantic -fsyntax-only cheb_out/chebyshev_engine.h
 ```
 
 ### Run Full Reproducible Pipeline

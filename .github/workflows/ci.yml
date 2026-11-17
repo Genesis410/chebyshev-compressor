@@ -49,5 +49,5 @@ jobs:
       - name: Verify strict C99 compliance
         if: runner.os == 'Linux'
         run: |
-          gcc -std=c99 -Wall -Wextra -Werror -pedantic -c cheb_out/chebyshev_engine.h -o /dev/null
-          clang -std=c99 -Wall -Wextra -Werror -pedantic -c cheb_out/chebyshev_engine.h -o /dev/null
+          gcc -x c -std=c99 -Wall -Wextra -Werror -pedantic -fsyntax-only cheb_out/chebyshev_engine.h
+          clang -x c -std=c99 -Wall -Wextra -Werror -pedantic -fsyntax-only cheb_out/chebyshev_engine.h
