@@ -12,7 +12,7 @@ $$
 f_t(\tau) = u(t - \tau), \quad \tau \in [0, \theta]
 $$
 
-where $\tau = 0$ corresponds to the immediate present ($f_t(0) = u(t)$) and $\tau = \theta$ represents the oldest preserved observation ($f_t(\theta) = u(t - \theta)$).
+where $\tau = 0$ corresponds to the immediate present ($`f_t(0) = u(t)`$) and $\tau = \theta$ represents the oldest preserved observation ($`f_t(\theta) = u(t - \theta)`$).
 
 Mapping lag time $\tau \in [0, \theta]$ linearly to the canonical Chebyshev domain $x \in [-1, 1]$ via:
 
@@ -35,7 +35,7 @@ In conventional non-linear Recurrent Neural Networks (RNNs, LSTMs, GRUs), histor
 **Chebyshev-Compressor** represents $f_t(\tau)$ directly as a truncated expansion of order $K$ in **Shifted Chebyshev Polynomials of the First Kind**:
 
 $$
-f_t(\tau) \approx \sum_{k=0}^{K-1} c_k(t) \thinspace T_k^{\ast}(\tau), \qquad T_k^{\ast}(\tau) = T_k\left(1 - \frac{2\tau}{\theta}\right) = \cos\left(k \arccos\left(1 - \frac{2\tau}{\theta}\right)\right)
+f_t(\tau) \approx \sum_{k=0}^{K-1} c_k(t) \, T_k^{\ast}(\tau), \qquad T_k^{\ast}(\tau) = T_k\!\left(1 - \frac{2\tau}{\theta}\right) = \cos\!\left(k \arccos\!\left(1 - \frac{2\tau}{\theta}\right)\right)
 $$
 
 where $\mathbf{c}(t) = [c_0(t), c_1(t), \dots, c_{K-1}(t)]^T \in \mathbb{R}^K$ is the **Chebyshev State Vector**.
@@ -44,8 +44,8 @@ Under the Chebyshev weight measure $w(x) = (1 - x^2)^{-1/2}$ on $[-1, 1]$, the p
 
 $$
 \int_{-1}^{1} T_n(x) T_k(x) \frac{dx}{\sqrt{1 - x^2}} = \begin{cases}
-\pi, & n = k = 0 \cr
-\frac{\pi}{2}, & n = k \ge 1 \cr
+\pi, & n = k = 0 \\
+\frac{\pi}{2}, & n = k \ge 1 \\
 0, & n \ne k
 \end{cases}
 $$
@@ -67,7 +67,7 @@ $$
 Consequently, Chebyshev projection achieves near-optimal uniform polynomial approximation across the entire sliding window $[0, \theta]$:
 
 $$
-\|f - p_K^{\ast}\|_\infty \le \left( 1 + \frac{2}{\pi} \ln K + O(1) \right) \min_{p \in \mathcal{P}_{K-1}} \|f - p\|_\infty
+\|f - p_K^*\|_\infty \le \left( 1 + \frac{2}{\pi} \ln K + O(1) \right) \min_{p \in \mathcal{P}_{K-1}} \|f - p\|_\infty
 $$
 
 Unlike Taylor series (which diverge near window endpoints) or Fourier series (which suffer from Gibbs oscillations on non-periodic signals), Chebyshev expansions distribute approximation error uniformly across $[0, \theta]$.
@@ -77,7 +77,7 @@ Unlike Taylor series (which diverge near window endpoints) or Fourier series (wh
 For any trajectory $f(\tau) \in C^p([0, \theta])$ whose $p$-th derivative has bounded total variation $V$, the modal coefficients decay spectrally as:
 
 $$
-|c_k| \le \frac{2 V}{\pi k (k - 1) \cdots (k - p + 1)} = O\left(k^{-p}\right)
+|c_k| \le \frac{2 V}{\pi k (k - 1) \cdots (k - p + 1)} = O\!\left(k^{-p}\right)
 $$
 
 For smooth analytic sensor signals within a Bernstein ellipse of semi-axis sum $\rho > 1$, the coefficients decay geometrically as $O(\rho^{-k})$, enabling compact orders ($K = 8$ to $16$) to reconstruct low-frequency physical dynamics with $< 0.1\%$ relative $L_2$ error.
@@ -100,20 +100,19 @@ k, & \text{if } j = 0,\; k > 0,\; k \text{ is odd} \\
 \end{cases}
 $$
 
-
 ### 3.2 Chebyshev-Gauss-Radau Boundary Projection (SAT)
 
 Consider the $K$-point **Chebyshev-Gauss-Radau (CGR)** quadrature grid anchored at the inflow boundary $x_0 = +1$:
 
 $$
-x_j = \cos\left(\frac{2\pi j}{2K - 1}\right), \qquad w_0 = \frac{\pi}{2K - 1}, \qquad w_j = \frac{2\pi}{2K - 1} \quad (j = 1, \dots, K - 1)
+x_j = \cos\!\left(\frac{2\pi j}{2K - 1}\right), \qquad w_0 = \frac{\pi}{2K - 1}, \qquad w_j = \frac{2\pi}{2K - 1} \quad (j = 1, \dots, K - 1)
 $$
 
 The Lagrange interpolant $\ell_0(x)$ centered at $x_0 = 1$ expands in the Chebyshev basis via the orthogonal weights $w_{\mathrm{norm}, k} \cdot w_0 = \frac{\gamma_k}{2K - 1}$:
 
 $$
 \ell_0(x) = \frac{1}{2K - 1} \sum_{k=0}^{K-1} \gamma_k T_k(x), \qquad \gamma_k = \pi w_{\mathrm{norm}, k} = \begin{cases}
-1, & k = 0 \cr
+1, & k = 0 \\
 2, & k \ge 1
 \end{cases}
 $$
@@ -139,7 +138,7 @@ Rather than relying on an approximate Normal Plus Low-Rank (NPLR) identity $A + 
 Define the symmetric positive-definite (SPD) discrete weighted energy matrix $P_{\mathrm{CGR}} \in \mathbb{R}^{K \times K}$:
 
 $$
-P_{\mathrm{CGR}} = V^T \thinspace \mathrm{diag}\left( w_j (1 + x_j) \right) \thinspace V \succ 0, \qquad V_{j, k} = T_k(x_j)
+P_{\mathrm{CGR}} = V^T \, \mathrm{diag}\!\left( w_j (1 + x_j) \right) \, V \succ 0, \qquad V_{j, k} = T_k(x_j)
 $$
 
 where the factor $(1 + x_j) > 0$ vanishes at the outflow boundary $x = -1$ and strictly weights the interior and inflow nodes. For every truncation order $K \ge 1$ and window duration $\theta > 0$, the continuous operator $A$ satisfies the strict **Lyapunov dissipation inequality**:
@@ -151,13 +150,13 @@ $$
 By Lyapunov's Stability Theorem, every eigenvalue of $A$ lies strictly in the open left-half complex plane (strictly Hurwitz):
 
 $$
-\max_{0 \le i < K} \mathrm{Re}\left(\lambda_i(A)\right) < 0
+\max_{0 \le i < K} \mathrm{Re}\!\left(\lambda_i(A)\right) < 0
 $$
 
 **Clarification on Finite-Dimensional Decay**: Because $A \in \mathbb{R}^{K \times K}$ is finite-dimensional and strictly Hurwitz, the matrix exponential satisfies an **exponential** asymptotic upper bound:
 
 $$
-\left\| e^{A t} \right\| \le M e^{-\alpha_0 t}, \qquad \alpha_0 = \min_{0 \le i < K} \left| \mathrm{Re}\left(\lambda_i(A)\right) \right| > 0
+\left\| e^{A t} \right\| \le M e^{-\alpha_0 t}, \qquad \alpha_0 = \min_{0 \le i < K} \left| \mathrm{Re}\!\left(\lambda_i(A)\right) \right| > 0
 $$
 
 rather than asymptotic $O(1/t)$ algebraic decay (which only arises in infinite-dimensional operator limits). This exponential bound guarantees **Bounded-Input Bounded-Output (BIBO) stability** over arbitrary streaming horizons ($T \to \infty$), while the Minimax Chebyshev basis retains smooth historical trajectories accurately across the entire sliding window $[0, \theta]$ without non-linear recurrent gates.
@@ -213,7 +212,7 @@ For a multi-channel sensor stream $x_t \in \mathbb{R}^{D_{\mathrm{in}}}$ (e.g., 
 1. **Frozen Analytical Depthwise Chebyshev Cell**: Each physical sensor channel $d \in \{1, \dots, D_{\mathrm{in}}\}$ maintains an independent order $K$ state vector $\mathbf{s}_t^{(d)} \in \mathbb{R}^K$ sharing the frozen analytical operators $(\bar{A}, \bar{B})$:
 
 $$
-\mathbf{s}_{t+1}^{(d)} = \bar{A} \mathbf{s}_t^{(d)} + \bar{B} \cdot \mathrm{sanitize}\left( \frac{x_t^{(d)} - \mu_d}{\sigma_d} \right)
+\mathbf{s}_{t+1}^{(d)} = \bar{A} \mathbf{s}_t^{(d)} + \bar{B} \cdot \mathrm{sanitize}\!\left( \frac{x_t^{(d)} - \mu_d}{\sigma_d} \right)
 $$
 
 where $\mathrm{sanitize}(\cdot)$ quarantines non-finite values (`NaN`, `±Inf`) to $0.0$ via bit-level IEEE-754 exponent masking and clamps finite outliers to $[-5.0, 5.0]$.
@@ -221,14 +220,14 @@ where $\mathrm{sanitize}(\cdot)$ quarantines non-finite values (`NaN`, `±Inf`) 
 2. **Trainable Decoupled Readout MLP (Option A)**: Cross-channel nonlinearities are learned outside the recurrent loop by a compact 2-layer MLP over the flattened Chebyshev state vector:
 
 $$
-\hat{y}_t = W_2 \thinspace \mathrm{ReLU}\left( W_1 \left[\mathbf{s}_t^{(1)}, \dots, \mathbf{s}_t^{(D_{\mathrm{in}})}\right] + b_1 \right) + b_2
+\hat{y}_t = W_2 \, \mathrm{ReLU}\!\left( W_1 \left[\mathbf{s}_t^{(1)}, \dots, \mathbf{s}_t^{(D_{\mathrm{in}})}\right] + b_1 \right) + b_2
 $$
 
 3. **Option A Multi-Objective Distillation with Fast State Precomputation**:
    Because $(\bar{A}, \bar{B})$ are strictly frozen analytical buffers, the state tensor $S \in \mathbb{R}^{N \times (D_{\mathrm{in}} \cdot K)}$ is precomputed once before training, and only the exported Readout MLP parameters $(W_1, b_1, W_2, b_2)$ are optimized under the convex distillation objective:
 
 $$
-\mathcal{L} = (1 - \lambda) \thinspace \mathrm{MSE}\left(\hat{y}_{\mathrm{student}}, y_{\mathrm{true}}\right) + \lambda \thinspace \mathrm{MSE}\left(\hat{y}_{\mathrm{student}}, \hat{y}_{\mathrm{teacher}}\right)
+\mathcal{L} = (1 - \lambda) \, \mathrm{MSE}\!\left(\hat{y}_{\mathrm{student}}, y_{\mathrm{true}}\right) + \lambda \, \mathrm{MSE}\!\left(\hat{y}_{\mathrm{student}}, \hat{y}_{\mathrm{teacher}}\right)
 $$
 
 with $\lambda \in [0, 1]$ (default $\lambda = 0.5$ when ground-truth labels $y_{\mathrm{true}}$ are available, and automatic fallback to $\lambda = 1.0$ on unlabeled calibration datasets).
