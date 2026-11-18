@@ -20,7 +20,7 @@ Refactor the distillation engine to implement **Option A (Fixed Analytical Ortho
   - Implement the multi-objective distillation loss:
     $$\mathcal{L} = (1 - \lambda)\,\mathrm{MSE}(y_{\text{student}}, y_{\text{true}}) + \lambda\,\mathrm{MSE}(y_{\text{student}}, y_{\text{teacher}})$$
   - Default $\lambda \in (0, 1)$ (e.g., `alpha_kd=0.5` or `distill_lambda=0.5`) when ground-truth labels `y_true` are present in the dataloader.
-  - Automatically fall back to $\lambda = 1.0$ (pure teacher mimicry $\mathrm{MSE}(y_{\text{student}}, y_{\text{teacher}})$) when `dataloader` yields unlabeled inputs (e.g., 1-tuple `(batch_x,)` or `batch_y is None`).
+  - Automatically fall back to $\lambda = 1.0$ (pure teacher mimicry $`\mathrm{MSE}(y_{\text{student}}, y_{\text{teacher}})`$) when `dataloader` yields unlabeled inputs (e.g., 1-tuple `(batch_x,)` or `batch_y is None`).
   - Record `total_loss`, `gt_loss`, `kd_loss`, and effective `lambda` in the returned training history dictionary.
 - [ ] **Held-Out Engine Split for NASA C-MAPSS FD001**:
   - Update `chebyshev/datasets.py` to support deterministic engine-level (`unit_id`) train/validation splitting (e.g., 80% training engines, 20% held-out validation engines with zero engine overlap).

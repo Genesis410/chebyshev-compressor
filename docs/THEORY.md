@@ -12,7 +12,7 @@ $$
 f_t(\tau) = u(t - \tau), \quad \tau \in [0, \theta]
 $$
 
-where $\tau = 0$ corresponds to the immediate present ($f_t(0) = u(t)$) and $\tau = \theta$ represents the oldest preserved observation ($f_t(\theta) = u(t - \theta)$).
+where $\tau = 0$ corresponds to the immediate present ($`f_t(0) = u(t)`$) and $\tau = \theta$ represents the oldest preserved observation ($`f_t(\theta) = u(t - \theta)`$).
 
 Mapping lag time $\tau \in [0, \theta]$ linearly to the canonical Chebyshev domain $x \in [-1, 1]$ via:
 
@@ -90,7 +90,7 @@ To evolve the modal state vector $\mathbf{c}(t)$ continuously without re-integra
 
 ### 3.1 Modal Chebyshev Differentiation Matrix
 
-Using the exact Chebyshev derivative identity $T_k'(x) = 2k \sum_{\substack{0 \le j < k \\ (k-j) \text{ odd}}} \tilde{\gamma}_j T_j(x)$ (with $\tilde{\gamma}_0 = \frac{1}{2}$, $\tilde{\gamma}_{j \ge 1} = 1$), the upper-triangular modal differentiation matrix $D \in \mathbb{R}^{K \times K}$ has exact entries:
+Using the exact Chebyshev derivative identity $T_k'(x) = 2k \sum_{\substack{0 \le j < k \\ (k-j) \text{ odd}}} \tilde{\gamma}_j T_j(x)$ (with $`\tilde{\gamma}_0 = \frac{1}{2}`$, $`\tilde{\gamma}_{j \ge 1} = 1`$), the upper-triangular modal differentiation matrix $D \in \mathbb{R}^{K \times K}$ has exact entries:
 
 $$
 D_{j, k} = \begin{cases}
@@ -209,7 +209,7 @@ This guarantees unconditional discrete BIBO stability for every $\Delta t > 0$, 
 
 For a multi-channel sensor stream $x_t \in \mathbb{R}^{D_{\mathrm{in}}}$ (e.g., $D_{\mathrm{in}} = 14$ in NASA C-MAPSS FD001):
 
-1. **Frozen Analytical Depthwise Chebyshev Cell**: Each physical sensor channel $d \in \{1, \dots, D_{\mathrm{in}}\}$ maintains an independent order-$K$ state vector $\mathbf{s}_t^{(d)} \in \mathbb{R}^K$ sharing the frozen analytical operators $(\bar{A}, \bar{B})$:
+1. **Frozen Analytical Depthwise Chebyshev Cell**: Each physical sensor channel $d \in \{1, \dots, D_{\mathrm{in}}\}$ maintains an independent order $K$ state vector $\mathbf{s}_t^{(d)} \in \mathbb{R}^K$ sharing the frozen analytical operators $(\bar{A}, \bar{B})$:
 
 $$
 \mathbf{s}_{t+1}^{(d)} = \bar{A} \mathbf{s}_t^{(d)} + \bar{B} \cdot \mathrm{sanitize}\!\left( \frac{x_t^{(d)} - \mu_d}{\sigma_d} \right)

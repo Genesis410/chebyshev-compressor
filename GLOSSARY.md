@@ -17,7 +17,7 @@ A fixed-size real vector $s_t \in \mathbb{R}^K$ (or $\mathbb{R}^{D_{\text{in}} \
 _Avoid_: KV Cache, Hidden Memory Matrix, Context Buffer
 
 **Depthwise Chebyshev State**:
-A structural decomposition where each input channel maintains its own independent order-$K$ Chebyshev state vector while sharing identical transition matrices ($\bar{A}, \bar{B}$).
+A structural decomposition where each input channel maintains its own independent order $K$ Chebyshev state vector while sharing identical transition matrices ($\bar{A}, \bar{B}$).
 _Avoid_: Coupled State, Multi-channel Flattened State
 
 **Baked Normalization**:

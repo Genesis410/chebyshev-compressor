@@ -33,7 +33,10 @@ Revise the mathematical foundations, distillation architecture, documentation, a
      - The Chebyshev recurrent cell dynamics $(\bar{A}, \bar{B})$ remain strictly fixed and analytically optimal from polynomial approximation theory.
      - Eliminate the misleading trajectory alignment adapter.
      - Implement a principled distillation objective combining soft teacher output mimicry with ground-truth target supervision:
-       $$\mathcal{L}_{\text{distill}} = (1 - \lambda)\mathcal{L}_{\text{task}}(y_{\text{student}}, y_{\text{true}}) + \lambda \tau^2 \mathcal{L}_{\text{KD}}(y_{\text{student}}, y_{\text{teacher}})$$
+
+       ```math
+       \mathcal{L}_{\text{distill}} = (1 - \lambda)\mathcal{L}_{\text{task}}(y_{\text{student}}, y_{\text{true}}) + \lambda \tau^2 \mathcal{L}_{\text{KD}}(y_{\text{student}}, y_{\text{teacher}})
+       ```
      - Evaluate the distilled student on a true held-out test partition of C-MAPSS turbofan engines.
 3. **Clarify Embedded and Benchmark Claims**:
    - Distinguish **Persistent Recurrent State SRAM** (448 Bytes) from **Total Active SRAM Footprint** (documenting stack and scratch buffers).

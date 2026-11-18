@@ -10,7 +10,7 @@ The benchmarking engine that auto-compiles and executes a native C harness measu
 - [x] Implement standalone C benchmark harness source generator measuring $10^5$ iterations via monotonic clock
 - [x] Compile harness with `-O3 -march=native`
 - [x] Benchmark baseline PyTorch LSTM inference latency under `torch.set_num_threads(1)`
-- [x] Output audit-proof throughput, latency per step (ns/$\mu$s), and memory reduction ratios
+- [x] Output audit-proof throughput, latency per step (ns/µs), and memory reduction ratios
 
 ## Implementation Summary
 - Implemented `chebyshev/benchmark.py`:

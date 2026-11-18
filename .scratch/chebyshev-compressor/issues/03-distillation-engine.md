@@ -10,7 +10,7 @@ The distillation training loop and synthetic data generator, supporting non-inva
 - [x] Implement synthetic multi-frequency signal generator with anomaly spikes in `datasets.py`
 - [x] Implement non-invasive PyTorch forward hooks with tuple output handling and `batch_first` transposition
 - [x] Implement linear trajectory alignment adapter $P$ with cosine annealing weight schedule $\lambda(t) \in [1.0, 0.1]$
-- [x] Implement normalized joint loss function ($\mathcal{L}_{\text{task}} + \lambda(t) \mathcal{L}_{\text{state}}$)
+- [x] Implement normalized joint loss function ($`\mathcal{L}_{\text{task}} + \lambda(t) \mathcal{L}_{\text{state}}`$)
 - [x] Verify convergence on synthetic smoke-test dataset in under 15 seconds
 
 ## Implementation Summary
