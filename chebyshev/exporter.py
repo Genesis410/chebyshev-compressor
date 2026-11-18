@@ -1,4 +1,4 @@
-"""Code generator that exports trained StudentModel into a standalone, MISRA-C compliant C99 header."""
+"""Code generator that exports trained StudentModel into a standalone, strict C99 header."""
 
 from pathlib import Path
 from typing import Union
@@ -75,6 +75,8 @@ def export_to_c_header(student: StudentModel, output_path: Union[str, Path]) -> 
     )
     flash_bytes = param_count * 4
     ram_state_bytes = num_channels * order * 4
+    stack_scratch_bytes = (order + hidden_dim) * 4
+    total_sram_bytes = ram_state_bytes + stack_scratch_bytes
 
     # Compute CRC32 checksum across all parameter bytes for firmware verification
     crc = 0
@@ -86,15 +88,18 @@ def export_to_c_header(student: StudentModel, output_path: Union[str, Path]) -> 
 
     # Construct complete C99 single-header library
     header_code = f"""/*
- * Chebyshev-Compressor: Standalone C99 Inference Engine
+ * Chebyshev-Compressor: Standalone Strict C99 Inference Engine
  * 
  * Auto-generated: {export_timestamp}
- * Architecture: Depthwise Chebyshev State Space + Non-Linear Readout MLP
+ * Architecture: Depthwise Chebyshev State Space (CGR Spectral-SAT) + Readout MLP
+ * Compliance: Strict C99 zero-warning (-std=c99 -Wall -Wextra -Werror -pedantic)
  * 
  * Model Footprint:
  *   - Parameters: {param_count:,} float32 values
- *   - Estimated Flash/ROM footprint: {flash_bytes:,} bytes ({flash_bytes / 1024:.2f} KB)
- *   - Estimated RAM footprint: {ram_state_bytes:,} bytes (caller-allocated state)
+ *   - Estimated Flash/ROM footprint (.rodata): {flash_bytes:,} bytes ({flash_bytes / 1024:.2f} KB)
+ *   - Persistent Recurrent State RAM (.bss/caller): {ram_state_bytes:,} bytes
+ *   - Active Call-Stack Scratch (next_s + h1): {stack_scratch_bytes:,} bytes
+ *   - Total Estimated Runtime SRAM: {total_sram_bytes:,} bytes (excluding caller I/O buffers)
  *   - Dynamic Allocation: strictly 0 bytes (no malloc/free)
  *   - Re-entrant: Yes (all state passed via context pointer)
  *   - Checksum: {checksum_hex}
@@ -103,16 +108,21 @@ def export_to_c_header(student: StudentModel, output_path: Union[str, Path]) -> 
 #ifndef CHEBYSHEV_ENGINE_H
 #define CHEBYSHEV_ENGINE_H
 
+#include <stdint.h>
+#include <string.h>
+
 #ifdef __cplusplus
 extern "C" {{
 #endif
 
-#define CHEB_NUM_CHANNELS {num_channels}
-#define CHEB_ORDER        {order}
-#define CHEB_HIDDEN_DIM   {hidden_dim}
-#define CHEB_NUM_OUTPUTS  {out_features}
-#define CHEB_INPUT_CLAMP  5.0f
-#define CHEB_MODEL_CHECKSUM {checksum_hex}
+#define CHEB_NUM_CHANNELS           {num_channels}
+#define CHEB_ORDER                  {order}
+#define CHEB_HIDDEN_DIM             {hidden_dim}
+#define CHEB_NUM_OUTPUTS            {out_features}
+#define CHEB_INPUT_CLAMP            5.0f
+#define CHEB_PERSISTENT_STATE_BYTES {ram_state_bytes}
+#define CHEB_STACK_SCRATCH_BYTES    {stack_scratch_bytes}
+#define CHEB_MODEL_CHECKSUM         {checksum_hex}
 
 /* Re-entrant caller-allocated state structure */
 typedef struct {{
@@ -160,15 +170,19 @@ static const float CHEB_B2[CHEB_NUM_OUTPUTS] = {{
 }};
 
 /*
- * IEEE-754 input sanity clamp and NaN quarantine.
- * Protects state against state poisoning even under -ffast-math / -Ofast.
+ * IEEE-754 bit-level non-finite quarantine and input sanity clamp.
+ * Uses strict-aliasing-safe memcpy into uint32_t to inspect the 8-bit exponent
+ * (0x7F800000U), guaranteeing NaN and +/-Inf are caught deterministically even
+ * when compiled with -ffast-math (-ffinite-math-only) or /fp:fast.
  */
 static inline float chebyshev_sanitize(float x) {{
-    if (!(x >= -CHEB_INPUT_CLAMP && x <= CHEB_INPUT_CLAMP)) {{
-        if (x > CHEB_INPUT_CLAMP) return CHEB_INPUT_CLAMP;
-        if (x < -CHEB_INPUT_CLAMP) return -CHEB_INPUT_CLAMP;
-        return 0.0f; /* Catches NaN and Inf */
+    uint32_t bits;
+    memcpy(&bits, &x, sizeof(bits));
+    if ((bits & 0x7F800000U) == 0x7F800000U) {{
+        return 0.0f; /* Catches NaN and +/-Inf deterministically under -ffast-math */
     }}
+    if (x > CHEB_INPUT_CLAMP) return CHEB_INPUT_CLAMP;
+    if (x < -CHEB_INPUT_CLAMP) return -CHEB_INPUT_CLAMP;
     return x;
 }}
 

@@ -1,7 +1,7 @@
 {
   "project": "chebyshev-compressor",
   "version": "0.1.0",
-  "timestamp_utc": "2026-11-17T14:52:23.641063+00:00",
+  "timestamp_utc": "2026-11-18T11:54:18.421616+00:00",
   "seed": 42,
   "environment": {
     "os": "Windows-11-10.0.26200-SP0",
@@ -18,45 +18,49 @@
     "window_size": 30.0,
     "teacher_hidden_dim": 32,
     "teacher_layers": 2,
-    "smoke_epochs": 5
+    "smoke_epochs": 10,
+    "distill_lambda": 0.5,
+    "distillation_mode": "option_a_fixed_analytical_precomputed"
   },
   "benchmark_metrics": {
-    "c_latency_us": 5.5172,
-    "pt_latency_us": 1020.4290999681689,
-    "speedup_x": 184.95416152544206,
+    "c_latency_us": 5.9471,
+    "pt_latency_us": 848.9680999773555,
+    "speedup_x": 142.7532915164291,
     "ram_bytes": 448,
-    "ram_reduction_pct": 98.6328125
+    "ram_reduction_pct": 98.6328125,
+    "teacher_val_rmse": 0.24928570568439548,
+    "student_val_rmse": 0.14658320589757604
   },
   "artifacts": {
     "teacher.pt": {
       "size_bytes": 62085,
       "sha256": "a20037ed61d9bb056d260f058c31d3ae74669a9b9210d84df31d3785ec2f64cd",
       "crc32": "0x2B664ED5U",
-      "modified_iso": "2026-11-17T14:52:17.807748+00:00"
+      "modified_iso": "2026-11-18T11:54:11.697765+00:00"
     },
     "student.pt": {
       "size_bytes": 18189,
-      "sha256": "ba61002b221c1c3d7d2324919a5d96a933172e20f2097c082bd1868444705dc3",
-      "crc32": "0x6BEAE8C5U",
-      "modified_iso": "2026-11-17T14:52:18.171650+00:00"
+      "sha256": "7b04da8e2c2bedcfababb51132b457cae7d5a15bd5d1945c9ba1b35d25d06775",
+      "crc32": "0xFB16368FU",
+      "modified_iso": "2026-11-18T11:54:11.943606+00:00"
     },
     "calib.npy": {
       "size_bytes": 240,
       "sha256": "76c6a960cce70d8595679a3a3dde5333be388cf4a449979d1bc2be86c159494e",
       "crc32": "0xAA7A94E8U",
-      "modified_iso": "2026-11-17T14:52:10.185681+00:00"
+      "modified_iso": "2026-11-18T11:54:05.002210+00:00"
     },
     "chebyshev_engine.h": {
-      "size_bytes": 63209,
-      "sha256": "ad7d5287b92b9a3acb394429682fcf533baaa4f509eabae4609be3f8b4e46324",
-      "crc32": "0xC6CFE512U",
-      "modified_iso": "2026-11-17T14:52:18.185206+00:00"
+      "size_bytes": 63985,
+      "sha256": "c41842550ee5ce9cb05567c15f70877b7328f47664e4c39dea453af8a49a1b97",
+      "crc32": "0xB85CDA27U",
+      "modified_iso": "2026-11-18T11:54:11.952119+00:00"
     },
     "benchmark_results.json": {
-      "size_bytes": 480,
-      "sha256": "705d236dcd8a0c0c6c02bad91e8a8017bdb5a8cedc8eacbb3a9fb09ec634263f",
-      "crc32": "0xED06E5FFU",
-      "modified_iso": "2026-11-17T14:52:23.508053+00:00"
+      "size_bytes": 946,
+      "sha256": "0e08791e4fb7dacd1437bc60e437ebeeef1aef47e9b48a99e28815d57c3d0f1c",
+      "crc32": "0x022C76A6U",
+      "modified_iso": "2026-11-18T11:54:18.296854+00:00"
     }
   },
   "metadata": {}

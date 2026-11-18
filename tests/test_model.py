@@ -40,13 +40,15 @@ def test_depthwise_cell_input_sanity_clamping_and_nan_quarantine():
     # Both should be identical due to clamping
     torch.testing.assert_close(state_from_extreme, state_from_clamped)
     
-    # Test NaN quarantine
-    x_with_nan = torch.tensor([[float('nan'), 1.0, 2.0, 3.0], [0.0, float('inf'), -1.0, 0.0]])
-    state_from_nan = cell(x_with_nan, state)
-    
-    # Output state must not contain NaN or Inf
-    assert not torch.isnan(state_from_nan).any(), "NaN leaked into recurrent state!"
-    assert not torch.isinf(state_from_nan).any(), "Inf leaked into recurrent state!"
+    # Test NaN, +Inf, -Inf quarantine -> all non-finite values map to 0.0 matching C99 0x7F800000U bit check
+    x_nonfinite = torch.tensor([[float('nan'), float('inf'), float('-inf'), 3.0], [0.0, float('inf'), -1.0, float('nan')]])
+    x_quarantined = torch.tensor([[0.0, 0.0, 0.0, 3.0], [0.0, 0.0, -1.0, 0.0]])
+    state_from_nonfinite = cell(x_nonfinite, state)
+    state_from_quarantined = cell(x_quarantined, state)
+
+    assert not torch.isnan(state_from_nonfinite).any(), "NaN leaked into recurrent state!"
+    assert not torch.isinf(state_from_nonfinite).any(), "Inf leaked into recurrent state!"
+    torch.testing.assert_close(state_from_nonfinite, state_from_quarantined)
 
 
 def test_depthwise_cell_baked_normalization():
@@ -157,3 +159,32 @@ def test_student_model_state_dict_serialization():
         out1 = model1(x)
         out2 = model2(x)
     torch.testing.assert_close(out1, out2)
+
+
+def test_long_horizon_numerical_stability_10000_steps():
+    """Streams 10,000 sequential steps in float32 verifying zero NaN/Inf and bounded state norms."""
+    torch.manual_seed(42)
+    num_channels = 4
+    order = 8
+    cell = DepthwiseChebyshevCell(num_channels=num_channels, order=order, window_size=30.0, dt=1.0)
+    state = cell.init_state(batch_size=1)
+
+    t = torch.arange(10000, dtype=torch.float32)
+    # Mix of sinusoidal drift + bounded stochastic noise
+    inputs = torch.sin(2.0 * np.pi * t / 50.0).unsqueeze(-1).repeat(1, num_channels)
+    inputs = inputs + 0.5 * torch.randn(10000, num_channels)
+
+    checkpoints = {100, 500, 1000, 10000}
+    norms = {}
+
+    with torch.no_grad():
+        for step in range(1, 10001):
+            state = cell(inputs[step - 1 : step], state)
+            if step in checkpoints:
+                assert torch.isfinite(state).all(), f"Non-finite state detected at step {step}"
+                norm_val = float(torch.linalg.norm(state).item())
+                norms[step] = norm_val
+                assert norm_val < 100.0, f"State norm exploded at step {step}: {norm_val}"
+
+    assert set(norms.keys()) == checkpoints
+

@@ -1,7 +1,7 @@
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 import numpy as np
 import pytest
 import torch
@@ -69,8 +69,15 @@ int main(int argc, char **argv) {
 """
 
 
-def compile_c_runner(compiler_path: str, compiler_type: str, include_dir: Path, source_path: Path, output_exe: Path):
-    """Compiles runner with strict flags to verify zero warnings and MISRA-C compliance."""
+def compile_c_runner(
+    compiler_path: str,
+    compiler_type: str,
+    include_dir: Path,
+    source_path: Path,
+    output_exe: Path,
+    extra_flags: Optional[List[str]] = None,
+):
+    """Compiles runner with strict C99 flags to verify zero warnings."""
     if compiler_type in ["gcc", "clang"]:
         cmd = [
             compiler_path,
@@ -80,6 +87,7 @@ def compile_c_runner(compiler_path: str, compiler_type: str, include_dir: Path, 
             "-Werror",
             "-pedantic",
             "-O2",
+            *(extra_flags or []),
             f"-I{include_dir}",
             str(source_path),
             "-o",
@@ -92,6 +100,7 @@ def compile_c_runner(compiler_path: str, compiler_type: str, include_dir: Path, 
             "/W4",
             "/WX",
             "/O2",
+            *(extra_flags or []),
             f"/I{include_dir}",
             str(source_path),
             f"/Fe:{output_exe}",
@@ -249,3 +258,84 @@ def test_multi_output_parity(tmp_path: Path):
 
     max_abs_error = np.max(np.abs(pytorch_out - c_out))
     assert max_abs_error < 1e-4, f"Multi-output parity mismatch: max_error={max_abs_error:.6e}"
+
+
+def test_fastmath_ieee754_nan_inf_quarantine_and_parity(tmp_path: Path):
+    """Verifies IEEE-754 memcpy exponent bit-mask check quarantines NaN/+Inf/-Inf
+    deterministically even when compiled with -O3 -ffast-math (-ffinite-math-only).
+    """
+    compiler = find_c_compiler()
+    if not compiler:
+        pytest.skip("No C compiler found")
+    compiler_path, compiler_type = compiler
+
+    torch.manual_seed(77)
+    num_channels = 8
+    order = 8
+    hidden_dim = 16
+    out_features = 1
+    T = 120
+
+    model = StudentModel(
+        num_channels=num_channels,
+        order=order,
+        hidden_dim=hidden_dim,
+        out_features=out_features,
+    )
+    model.eval()
+    mean = np.linspace(-5.0, 20.0, num_channels, dtype=np.float32)
+    std = np.linspace(1.0, 5.0, num_channels, dtype=np.float32)
+    model.cell.set_normalization(mean, std)
+
+    header_path = tmp_path / "chebyshev_engine.h"
+    export_to_c_header(model, header_path)
+
+    runner_src = tmp_path / "runner_fastmath.c"
+    runner_src.write_text(C_RUNNER_TEMPLATE, encoding="utf-8")
+    output_exe = tmp_path / "runner_fastmath.exe"
+
+    fastmath_flags = ["-O3", "-ffast-math"] if compiler_type in ["gcc", "clang"] else ["/O2", "/fp:fast"]
+    compile_c_runner(
+        compiler_path,
+        compiler_type,
+        tmp_path,
+        runner_src,
+        output_exe,
+        extra_flags=fastmath_flags,
+    )
+
+    rng = np.random.RandomState(77)
+    x = rng.randn(T, num_channels).astype(np.float32) * std + mean
+
+    # Inject NaN, +Inf, -Inf, and extreme finite spikes mid-stream
+    x[20:30, 0:3] = np.nan
+    x[30:40, 2:5] = np.inf
+    x[40:50, 4:7] = -np.inf
+    x[50:60, :] = 1e6
+    x[60:70, :] = -1e6
+
+    with torch.no_grad():
+        pytorch_out = model(
+            torch.from_numpy(x).unsqueeze(0), return_sequence=True
+        ).squeeze(0).cpu().numpy()
+
+    input_bin = tmp_path / "input_fastmath.bin"
+    output_bin = tmp_path / "output_fastmath.bin"
+    with open(input_bin, "wb") as f:
+        f.write(np.int32(T).tobytes())
+        f.write(x.tobytes())
+
+    res = subprocess.run([str(output_exe), str(input_bin), str(output_bin)], capture_output=True, text=True)
+    assert res.returncode == 0, f"Fast-math runner execution failed: {res.stderr}"
+
+    with open(output_bin, "rb") as f:
+        c_out = np.frombuffer(f.read(), dtype=np.float32).reshape(T, out_features)
+
+    # Zero state poisoning under -ffast-math
+    assert np.all(np.isfinite(c_out)), "State poisoning detected: non-finite C output under -ffast-math!"
+    assert np.all(np.isfinite(pytorch_out)), "Non-finite PyTorch output detected!"
+
+    # Exact parity across normal, NaN, +Inf, -Inf, and extreme spike phases
+    max_abs_error = float(np.max(np.abs(pytorch_out - c_out)))
+    assert max_abs_error < 1e-4, f"Fast-math C/PyTorch parity mismatch: max_error={max_abs_error:.6e}"
+

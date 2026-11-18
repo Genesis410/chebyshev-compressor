@@ -93,14 +93,11 @@ class DepthwiseChebyshevCell(nn.Module):
         # 1. Baked normalization
         x_norm = (x_t - self.mean) * self.inv_std
 
-        # 2. Input sanity clamping and NaN quarantine (ADR-0007)
-        x_clamped = torch.clamp(x_norm, -self.clamp_value, self.clamp_value)
-        x_sanitized = torch.nan_to_num(
-            x_clamped,
-            nan=0.0,
-            posinf=self.clamp_value,
-            neginf=-self.clamp_value,
-        )
+        # 2. Input sanity clamping and IEEE-754 non-finite (NaN / +/-Inf) quarantine (ADR-0007)
+        # Quarantines NaN, +Inf, and -Inf to 0.0 before clamping finite spikes to [-clamp, +clamp],
+        # matching the C99 exponent bit-mask check ((bits & 0x7F800000U) == 0x7F800000U -> 0.0f).
+        x_finite = torch.nan_to_num(x_norm, nan=0.0, posinf=0.0, neginf=0.0)
+        x_sanitized = torch.clamp(x_finite, -self.clamp_value, self.clamp_value)
 
         # 3. Linear state-space update: s_{t+1} = A s_t + B x_t
         # state: (B, D_in, K) @ A.T (K, K) -> (B, D_in, K)

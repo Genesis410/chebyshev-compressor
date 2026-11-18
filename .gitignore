@@ -67,3 +67,4 @@ Desktop.ini
 
 # Temporary scratch and experiment outputs
 *.log
+data/

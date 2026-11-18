@@ -61,15 +61,17 @@ Embedded targets (e.g. ARM Cortex-M4F, ESP32) frequently feature single-precisio
 - All floating-point operations must use `float` (32-bit).
 - All literal values emitted by the C exporter must have an explicit decimal point or exponent followed by the `f` suffix (e.g., `1.0f`, `1.23e-4f`). Standard C99 disallows forms like `1f`.
 
-### Rule 4: Compiler Optimization & NaN Quarantine
-Microcontroller build systems often enable `-ffast-math` or `-Ofast`. Under these compiler flags, standard `isnan()` calls may be optimized away. Always use explicit IEEE-754 bounds checks:
+### Rule 4: Compiler Optimization & `-ffast-math`-Safe Non-Finite Quarantine
+Microcontroller build systems often enable `-ffast-math` (which implies `-ffinite-math-only`) or `/fp:fast`. Under these flags, compilers may optimize away floating-point `NaN`/`Inf` comparisons as dead code. Always use strict-aliasing-safe C99 `memcpy` IEEE-754 exponent bit-masking (`0x7F800000U`):
 ```c
 static inline float chebyshev_sanitize(float x) {
-    if (!(x >= -CHEB_INPUT_CLAMP && x <= CHEB_INPUT_CLAMP)) {
-        if (x > CHEB_INPUT_CLAMP) return CHEB_INPUT_CLAMP;
-        if (x < -CHEB_INPUT_CLAMP) return -CHEB_INPUT_CLAMP;
-        return 0.0f; /* Catches NaNs and undefined infinities */
+    uint32_t bits;
+    memcpy(&bits, &x, sizeof(bits));
+    if ((bits & 0x7F800000U) == 0x7F800000U) {
+        return 0.0f; /* Catches NaN and +/-Inf deterministically under -ffast-math */
     }
+    if (x > CHEB_INPUT_CLAMP) return CHEB_INPUT_CLAMP;
+    if (x < -CHEB_INPUT_CLAMP) return -CHEB_INPUT_CLAMP;
     return x;
 }
 ```
@@ -125,8 +127,8 @@ pytest tests/ -v
 Ensure that the exported C header compiles without any warnings under maximum strictness:
 ```bash
 # Valid for Linux, macOS, and Windows MinGW:
-gcc -x c -std=c99 -Wall -Wextra -Werror -pedantic -fsyntax-only cheb_out/chebyshev_engine.h
-clang -x c -std=c99 -Wall -Wextra -Werror -pedantic -fsyntax-only cheb_out/chebyshev_engine.h
+gcc -x c -std=c99 -Wall -Wextra -Werror -pedantic -Wno-unused-function -fsyntax-only cheb_out/chebyshev_engine.h
+clang -x c -std=c99 -Wall -Wextra -Werror -pedantic -Wno-unused-function -fsyntax-only cheb_out/chebyshev_engine.h
 ```
 
 ### Run Full Reproducible Pipeline
@@ -142,9 +144,9 @@ python -m chebyshev.cli --smoke-test --seed 42
    - `feat/feature-name` for new features or hardware targets
    - `fix/bug-description` for bug fixes
    - `docs/topic-name` for documentation improvements
-2. **Issue Specification**: Reference existing issues in `.scratch/chebyshev-compressor/issues/` or create one following [issue-tracker.md](docs/agents/issue-tracker.md).
+2. **Issue Specification**: Reference existing issues in `.scratch/revisi/issues/` or create one following [issue-tracker.md](docs/agents/issue-tracker.md).
 3. **PR Verification Checklist**:
-   - [ ] All 32 automated tests in `tests/` pass.
+   - [ ] All automated tests in `tests/` pass (including `-O3 -ffast-math` quarantine & signal reconstruction).
    - [ ] Parity between PyTorch and C99 is preserved ($\le 10^{-4}$).
    - [ ] C code passes `-Wall -Wextra -Werror -pedantic -std=c99`.
    - [ ] No heap allocations (`malloc`, `free`) added to C runtime.

@@ -1,0 +1,46 @@
+[
+  {
+    "order_k": 4,
+    "recon_rel_l2_error": 0.941022537160094,
+    "teacher_val_rmse_cycles": 41.74921199339037,
+    "student_val_rmse_cycles": 21.49935866182374,
+    "persistent_state_bytes": 224,
+    "stack_scratch_bytes": 144,
+    "total_sram_bytes": 368,
+    "c_latency_us": 2.9734,
+    "c_window_latency_us": 84.5075
+  },
+  {
+    "order_k": 8,
+    "recon_rel_l2_error": 0.2541455828874256,
+    "teacher_val_rmse_cycles": 41.74921199339037,
+    "student_val_rmse_cycles": 21.00290215906382,
+    "persistent_state_bytes": 448,
+    "stack_scratch_bytes": 160,
+    "total_sram_bytes": 608,
+    "c_latency_us": 5.7497,
+    "c_window_latency_us": 172.9779
+  },
+  {
+    "order_k": 16,
+    "recon_rel_l2_error": 0.00020860736882518847,
+    "teacher_val_rmse_cycles": 41.74921199339037,
+    "student_val_rmse_cycles": 20.55852034706774,
+    "persistent_state_bytes": 896,
+    "stack_scratch_bytes": 192,
+    "total_sram_bytes": 1088,
+    "c_latency_us": 16.351,
+    "c_window_latency_us": 511.9506
+  },
+  {
+    "order_k": 32,
+    "recon_rel_l2_error": 0.00017411461518722804,
+    "teacher_val_rmse_cycles": 41.74921199339037,
+    "student_val_rmse_cycles": 23.24031403844742,
+    "persistent_state_bytes": 1792,
+    "stack_scratch_bytes": 256,
+    "total_sram_bytes": 2048,
+    "c_latency_us": 38.8272,
+    "c_window_latency_us": 1198.878
+  }
+]

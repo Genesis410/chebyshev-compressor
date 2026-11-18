@@ -1,7 +1,7 @@
-"""Dataset utilities, NASA C-MAPSS FD001 pipeline, and synthetic signal generator."""
+"""Dataset utilities, NASA C-MAPSS FD001 pipeline with strict engine-level splits, and synthetic generator."""
 
 from pathlib import Path
-from typing import Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, TensorDataset
@@ -18,13 +18,13 @@ def generate_synthetic_smoke_data(
     seed: int = 42,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Generates synthetic multi-frequency multi-sensor signals for fast smoke testing.
-    
+
     Args:
         num_samples: Number of time-series window samples.
         seq_len: Temporal length T of each window.
         num_channels: Number of sensor channels D_in.
         seed: Random seed for deterministic generation.
-        
+
     Returns:
         Tuple of (X, y, mean, std):
             X: Array of shape (num_samples, seq_len, num_channels) float32.
@@ -70,7 +70,7 @@ def generate_synthetic_smoke_data(
 
 
 def _generate_synthetic_cmapss_file(target_file: Path, num_engines: int = 100, seed: int = 42) -> None:
-    """Generates an authentic synthetic replica of NASA C-MAPSS FD001 dataset."""
+    """Generates a deterministic synthetic replica of NASA C-MAPSS FD001 dataset."""
     rng = np.random.RandomState(seed)
     target_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -94,33 +94,11 @@ def _generate_synthetic_cmapss_file(target_file: Path, num_engines: int = 100, s
     target_file.write_text("\n".join(lines), encoding="utf-8")
 
 
-def load_cmapss_fd001(
+def _read_cmapss_engines(
     data_dir: Optional[Union[str, Path]] = None,
     max_engines: Optional[int] = None,
-    window_size: int = 30,
-    stride: int = 1,
-    max_rul: float = 125.0,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Loads and preprocesses NASA C-MAPSS FD001 turbofan degradation dataset.
-    
-    Extracts the 14 informative sensor channels, computes piecewise-linear
-    Remaining Useful Life (RUL) normalized to [0, 1], and extracts sliding windows.
-    If local file is not present, auto-generates a realistic local dataset.
-    
-    Args:
-        data_dir: Directory containing train_FD001.txt (defaults to ./data).
-        max_engines: Optional limit on the number of engine units to load.
-        window_size: Length of the sliding temporal context window.
-        stride: Stride between consecutive sliding windows.
-        max_rul: Maximum RUL clipping threshold (standard 125.0).
-        
-    Returns:
-        Tuple of (X, y, mean, std):
-            X: Array of shape (N, window_size, 14) float32.
-            y: Array of shape (N, 1) float32.
-            mean: Array of shape (14,) float32.
-            std: Array of shape (14,) float32.
-    """
+) -> Dict[int, List[Tuple[int, List[float]]]]:
+    """Reads C-MAPSS FD001 text file grouped by engine unit_id."""
     if data_dir is None:
         data_path = Path("data") / "train_FD001.txt"
     else:
@@ -129,40 +107,44 @@ def load_cmapss_fd001(
     if not data_path.exists():
         _generate_synthetic_cmapss_file(data_path, num_engines=100)
 
-    # Read dataset file using standard python parser for zero-bloat
-    records = []
+    engines: Dict[int, List[Tuple[int, List[float]]]] = {}
     with open(data_path, "r", encoding="utf-8") as f:
         for line in f:
             parts = line.strip().split()
             if len(parts) >= 26:
                 unit_id = int(float(parts[0]))
+                if max_engines is not None and unit_id > max_engines:
+                    continue
                 cycle = int(float(parts[1]))
                 sensors = [float(p) for p in parts[5:26]]
-                records.append((unit_id, cycle, sensors))
+                if unit_id not in engines:
+                    engines[unit_id] = []
+                engines[unit_id].append((cycle, sensors))
 
-    # Group by unit ID
-    engines = {}
-    for unit_id, cycle, sensors in records:
-        if max_engines is not None and unit_id > max_engines:
-            continue
-        if unit_id not in engines:
-            engines[unit_id] = []
-        engines[unit_id].append((cycle, sensors))
+    return engines
 
+
+def _build_windows_for_units(
+    engines: Dict[int, List[Tuple[int, List[float]]]],
+    unit_ids: List[int],
+    window_size: int,
+    stride: int,
+    max_rul: float,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Builds sliding windows, normalized RUL targets, and concatenated raw readings for selected units."""
     windows_X = []
     targets_y = []
-    all_sensor_readings = []
+    raw_readings = []
 
-    for unit_id, cycles in engines.items():
-        cycles.sort(key=lambda x: x[0])
+    for unit_id in unit_ids:
+        cycles = sorted(engines[unit_id], key=lambda x: x[0])
         max_cycle = cycles[-1][0]
 
-        # Extract 14 informative sensors per cycle
         engine_sensors = np.array(
             [[s[idx] for idx in INFORMATIVE_SENSOR_INDICES] for _, s in cycles],
             dtype=np.float32,
         )
-        all_sensor_readings.append(engine_sensors)
+        raw_readings.append(engine_sensors)
 
         num_cycles = len(cycles)
         if num_cycles < window_size:
@@ -173,7 +155,6 @@ def load_cmapss_fd001(
             window = engine_sensors[start:end]
             current_cycle = cycles[end - 1][0]
 
-            # Piecewise-linear RUL clipped at max_rul and normalized to [0, 1]
             raw_rul = float(max_cycle - current_cycle)
             clipped_rul = min(raw_rul, max_rul) / max_rul
 
@@ -182,8 +163,112 @@ def load_cmapss_fd001(
 
     X = np.array(windows_X, dtype=np.float32)
     y = np.array(targets_y, dtype=np.float32).reshape(-1, 1)
+    all_raw = np.concatenate(raw_readings, axis=0) if raw_readings else np.zeros((0, 14), dtype=np.float32)
+    return X, y, all_raw
 
-    all_concat = np.concatenate(all_sensor_readings, axis=0)
+
+def load_cmapss_fd001_splits(
+    data_dir: Optional[Union[str, Path]] = None,
+    max_engines: Optional[int] = None,
+    window_size: int = 30,
+    stride: int = 1,
+    max_rul: float = 125.0,
+    val_fraction: float = 0.2,
+    seed: int = 42,
+) -> Dict[str, Any]:
+    """Loads NASA C-MAPSS FD001 with strict engine-level (unit_id) train/validation splitting.
+
+    Ensures zero engine overlap between training and validation partitions, and computes
+    channel normalization statistics (mean, std) strictly on the training engines only
+    to prevent data leakage.
+
+    Args:
+        data_dir: Directory containing train_FD001.txt (defaults to ./data).
+        max_engines: Optional limit on the number of engine units to load (>= 2).
+        window_size: Length of the sliding temporal context window.
+        stride: Stride between consecutive sliding windows.
+        max_rul: Maximum RUL clipping threshold (standard 125.0).
+        val_fraction: Fraction of engine units held out for validation (default 0.2).
+        seed: Random seed for deterministic engine partition.
+
+    Returns:
+        Dictionary with keys:
+            X_train, y_train, X_val, y_val, mean, std, train_units, val_units, max_rul.
+    """
+    if not (0.0 < val_fraction < 1.0):
+        raise ValueError(f"val_fraction must be in (0, 1), got {val_fraction}")
+
+    engines = _read_cmapss_engines(data_dir=data_dir, max_engines=max_engines)
+    all_units = sorted(engines.keys())
+    if len(all_units) < 2:
+        raise ValueError(f"Need at least 2 engine units for train/val split, got {len(all_units)}")
+
+    rng = np.random.RandomState(seed)
+    shuffled_units = list(rng.permutation(all_units))
+    num_val = max(1, int(round(len(shuffled_units) * val_fraction)))
+    num_val = min(num_val, len(shuffled_units) - 1)
+
+    val_units = sorted(int(u) for u in shuffled_units[:num_val])
+    train_units = sorted(int(u) for u in shuffled_units[num_val:])
+
+    X_train, y_train, raw_train = _build_windows_for_units(
+        engines, train_units, window_size=window_size, stride=stride, max_rul=max_rul
+    )
+    X_val, y_val, _ = _build_windows_for_units(
+        engines, val_units, window_size=window_size, stride=stride, max_rul=max_rul
+    )
+
+    # Fit normalization strictly on training engines only (no validation leakage)
+    mean = np.mean(raw_train, axis=0).astype(np.float32)
+    std = np.std(raw_train, axis=0).astype(np.float32)
+    std = np.where(std < 1e-4, 1.0, std)
+
+    return {
+        "X_train": X_train,
+        "y_train": y_train,
+        "X_val": X_val,
+        "y_val": y_val,
+        "mean": mean,
+        "std": std,
+        "train_units": train_units,
+        "val_units": val_units,
+        "max_rul": float(max_rul),
+    }
+
+
+def load_cmapss_fd001(
+    data_dir: Optional[Union[str, Path]] = None,
+    max_engines: Optional[int] = None,
+    window_size: int = 30,
+    stride: int = 1,
+    max_rul: float = 125.0,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Loads and preprocesses NASA C-MAPSS FD001 turbofan degradation dataset.
+
+    Extracts the 14 informative sensor channels, computes piecewise-linear
+    Remaining Useful Life (RUL) normalized to [0, 1], and extracts sliding windows.
+    If local file is not present, auto-generates a realistic local dataset.
+
+    Args:
+        data_dir: Directory containing train_FD001.txt (defaults to ./data).
+        max_engines: Optional limit on the number of engine units to load.
+        window_size: Length of the sliding temporal context window.
+        stride: Stride between consecutive sliding windows.
+        max_rul: Maximum RUL clipping threshold (standard 125.0).
+
+    Returns:
+        Tuple of (X, y, mean, std):
+            X: Array of shape (N, window_size, 14) float32.
+            y: Array of shape (N, 1) float32.
+            mean: Array of shape (14,) float32.
+            std: Array of shape (14,) float32.
+    """
+    engines = _read_cmapss_engines(data_dir=data_dir, max_engines=max_engines)
+    all_units = sorted(engines.keys())
+    X, y, all_concat = _build_windows_for_units(
+        engines, all_units, window_size=window_size, stride=stride, max_rul=max_rul
+    )
+
     mean = np.mean(all_concat, axis=0).astype(np.float32)
     std = np.std(all_concat, axis=0).astype(np.float32)
     std = np.where(std < 1e-4, 1.0, std)
@@ -192,10 +277,16 @@ def load_cmapss_fd001(
 
 
 def create_dataloader(
-    X: np.ndarray, y: np.ndarray, batch_size: int = 32, shuffle: bool = True
+    X: np.ndarray,
+    y: Optional[np.ndarray] = None,
+    batch_size: int = 32,
+    shuffle: bool = True,
 ) -> DataLoader:
-    """Creates a PyTorch DataLoader from numpy arrays."""
+    """Creates a PyTorch DataLoader from numpy arrays (supports unlabeled calibration when y is None)."""
     tensor_x = torch.from_numpy(X).float()
-    tensor_y = torch.from_numpy(y).float()
-    dataset = TensorDataset(tensor_x, tensor_y)
+    if y is None:
+        dataset = TensorDataset(tensor_x)
+    else:
+        tensor_y = torch.from_numpy(y).float()
+        dataset = TensorDataset(tensor_x, tensor_y)
     return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)

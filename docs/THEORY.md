@@ -1,52 +1,62 @@
 # Mathematical Foundations of Chebyshev State-Space Compression
 
-This whitepaper details the mathematical derivation, approximation theory, and dynamical systems principles underpinning the **Chebyshev-Compressor** architecture.
+This whitepaper details the mathematical derivation, approximation theory, Lyapunov stability proof, and discretization methodology underpinning the **Chebyshev-Compressor** architecture. Every equation below matches the exact canonical implementation in `chebyshev/math_ops.py`.
 
 ---
 
-## 1. The Continuous-Time Memory Problem
+## 1. The Continuous-Time Sliding-Window Memory Problem
 
-Let $u(t) \in \mathbb{R}$ denote a continuous-time real-valued sensor signal. An ideal continuous memory mechanism maintaining history over a sliding temporal window $[t - \theta, t]$ of duration $\theta > 0$ must track the historical trajectory function:
+Let $u(t) \in \mathbb{R}$ denote a continuous-time real-valued sensor signal. An ideal continuous memory mechanism maintaining history over a sliding temporal window $[t - \theta, t]$ of duration $\theta > 0$ tracks the historical trajectory function:
 
 $$
 f_t(\tau) = u(t - \tau), \quad \tau \in [0, \theta]
 $$
 
-where $\tau = 0$ corresponds to the immediate present ($u(t)$) and $\tau = \theta$ represents the oldest preserved historical observation ($u(t - \theta)$).
+where $\tau = 0$ corresponds to the immediate present ($f_t(0) = u(t)$) and $\tau = \theta$ represents the oldest preserved observation ($f_t(\theta) = u(t - \theta)$).
 
-In conventional Recurrent Neural Networks (RNNs, LSTMs, GRUs), this historical function is compressed heuristically into a latent state vector $h_t \in \mathbb{R}^H$ through parameterized non-linear transitions:
-
-$$
-h_{t+1} = \tanh(W_h h_t + W_x x_{t+1} + b)
-$$
-
-Under backpropagation through time over $T$ steps, the gradient of the loss $\mathcal{L}$ with respect to the initial state $h_0$ involves repeated products of Jacobian matrices:
+Mapping lag time $\tau \in [0, \theta]$ linearly to the canonical Chebyshev domain $x \in [-1, 1]$ via:
 
 $$
-\frac{\partial \mathcal{L}}{\partial h_0} = \frac{\partial \mathcal{L}}{\partial h_T} \prod_{t=1}^T \frac{\partial h_t}{\partial h_{t-1}} = \frac{\partial \mathcal{L}}{\partial h_T} \prod_{t=1}^T \mathrm{diag}(1 - h_t^2) W_h
+x = 1 - \frac{2\tau}{\theta} \iff \tau = \frac{\theta}{2}(1 - x)
 $$
 
-Because the operator norm $\| \mathrm{diag}(1 - h_t^2) W_h \| \le \sigma < 1$ in contracting regimes, the gradient decays **exponentially**:
+places the present inflow boundary at $x = +1$ and the oldest boundary at $x = -1$. Under this coordinate transformation, the sliding-window transport PDE $\partial_t f_t = -\partial_\tau f_t$ becomes:
 
 $$
-\left\| \frac{\partial \mathcal{L}}{\partial h_0} \right\| \le C \cdot \sigma^T = O\left(e^{-\alpha T}\right), \quad \alpha > 0
+\frac{\partial f_t(x)}{\partial t} = \frac{2}{\theta} \frac{\partial f_t(x)}{\partial x}, \qquad f_t(1) = u(t)
 $$
 
-Conversely, if $\|W_h\| > 1$, gradients explode. This fundamental dichotomy causes conventional RNNs to suffer from catastrophic forgetting and gradient decay over long context horizons.
+In conventional non-linear Recurrent Neural Networks (RNNs, LSTMs, GRUs), historical context is compressed heuristically through coupled non-linear transitions $h_{t+1} = \tanh(W_h h_t + W_x x_{t+1} + b)$. During Backpropagation Through Time (BPTT) over $T$ steps, repeated Jacobian products $\prod_{t=1}^T \mathrm{diag}(1 - h_t^2) W_h$ either contract exponentially toward zero or explode, requiring large hidden dimensions and non-linear gating overhead.
 
 ---
 
-## 2. Orthogonal Polynomial Memory & Minimax Optimality
+## 2. Shifted Chebyshev Orthogonal Basis & Minimax Optimality
 
-Rather than relying on unconstrained recurrent weights, **Chebyshev-Compressor** projects $f_t(\tau)$ onto a truncated orthogonal basis of $K$ **Shifted Chebyshev Polynomials of the First Kind** $T_k^*(\tau)$:
+**Chebyshev-Compressor** represents $f_t(\tau)$ directly as a truncated expansion of order $K$ in **Shifted Chebyshev Polynomials of the First Kind**:
 
 $$
-f_t(\tau) \approx \sum_{k=0}^{K-1} c_k(t) \phi_k(\tau)
+f_t(\tau) \approx \sum_{k=0}^{K-1} c_k(t) \, T_k^*(\tau), \qquad T_k^*(\tau) = T_k\!\left(1 - \frac{2\tau}{\theta}\right) = \cos\!\left(k \arccos\!\left(1 - \frac{2\tau}{\theta}\right)\right)
 $$
 
-where $\mathbf{c}(t) = [c_0(t), c_1(t), \dots, c_{K-1}(t)]^T \in \mathbb{R}^K$ is the Chebyshev State Vector.
+where $\mathbf{c}(t) = [c_0(t), c_1(t), \dots, c_{K-1}(t)]^T \in \mathbb{R}^K$ is the **Chebyshev State Vector**.
 
-### 2.1 Why Chebyshev Polynomials? (The Minimax Property)
+Under the Chebyshev weight measure $w(x) = (1 - x^2)^{-1/2}$ on $[-1, 1]$, the polynomials satisfy the orthogonality relation:
+
+$$
+\int_{-1}^{1} T_n(x) T_k(x) \frac{dx}{\sqrt{1 - x^2}} = \begin{cases}
+\pi, & n = k = 0 \\
+\frac{\pi}{2}, & n = k \ge 1 \\
+0, & n \ne k
+\end{cases}
+$$
+
+which yields the orthogonal projection normalization weights:
+
+$$
+w_{\mathrm{norm}, 0} = \frac{1}{\pi}, \qquad w_{\mathrm{norm}, k} = \frac{2}{\pi} \quad (k \ge 1)
+$$
+
+### 2.1 Minimax Approximation Property
 
 By the **Chebyshev Equioscillation Theorem**, among all monic polynomials $P_n(x)$ of degree $n$ on $[-1, 1]$, the scaled Chebyshev polynomial $2^{1-n} T_n(x)$ uniquely minimizes the uniform supremum norm ($L_\infty$-norm):
 
@@ -54,115 +64,120 @@ $$
 \min_{P_n \in \mathcal{P}_n} \|P_n\|_\infty = \left\| 2^{1-n} T_n \right\|_\infty = 2^{1-n}
 $$
 
-This property guarantees that approximating a continuous function using Chebyshev polynomial projection yields an approximation error that is within an infinitesimal factor of the mathematically optimal polynomial approximation:
+Consequently, Chebyshev projection achieves near-optimal uniform polynomial approximation across the entire sliding window $[0, \theta]$:
 
 $$
 \|f - p_K^*\|_\infty \le \left( 1 + \frac{2}{\pi} \ln K + O(1) \right) \min_{p \in \mathcal{P}_{K-1}} \|f - p\|_\infty
 $$
 
-In contrast to Taylor expansions (which concentrate accuracy at a single expansion point while diverging rapidly near window boundaries) or Fourier series (which suffer from Gibbs ringing phenomenon near non-periodic endpoints), **Chebyshev expansions distribute approximation error equioscillating uniformly across the entire history window $[0, \theta]$**.
+Unlike Taylor series (which diverge near window endpoints) or Fourier series (which suffer from Gibbs oscillations on non-periodic signals), Chebyshev expansions distribute approximation error uniformly across $[0, \theta]$.
 
-### 2.2 Spectral Decay of Expansion Coefficients
+### 2.2 Spectral Convergence of Coefficients
 
-For any input trajectory $f(\tau) \in C^p([0, \theta])$ whose $p$-th derivative has bounded total variation $V$, the Chebyshev expansion coefficients $c_k$ satisfy the spectral decay bound:
-
-$$
-|c_k| \le \frac{2 V}{\pi k (k-1) \cdots (k-p+1)} = O\left( k^{-p} \right)
-$$
-
-If the signal is analytic within an ellipse containing $[0, \theta]$ with sum of semi-axes $\rho > 1$, the coefficients decay **exponentially** in spectral degree:
+For any trajectory $f(\tau) \in C^p([0, \theta])$ whose $p$-th derivative has bounded total variation $V$, the modal coefficients decay spectrally as:
 
 $$
-|c_k| \le \frac{2 M}{\rho - 1} \rho^{-k} = O\left( \rho^{-k} \right)
+|c_k| \le \frac{2 V}{\pi k (k - 1) \cdots (k - p + 1)} = O\!\left(k^{-p}\right)
 $$
 
-This rapid spectral decay guarantees that retaining merely $K = 8$ polynomial coefficients captures over **99.5%** of the total historical signal energy for real-world machinery sensor dynamics.
+For smooth analytic sensor signals within a Bernstein ellipse of semi-axis sum $\rho > 1$, the coefficients decay geometrically as $O(\rho^{-k})$, enabling compact orders ($K = 8$ to $16$) to reconstruct low-frequency physical dynamics with $< 0.1\%$ relative $L_2$ error.
 
 ---
 
-## 3. Continuous-Time Dynamical System (HiPPO-ChebT)
+## 3. Canonical Continuous-Time Operator: Chebyshev-Gauss-Radau (CGR) Spectral-SAT
 
-To continuously maintain $\mathbf{c}(t)$ as time $t$ flows forward without re-integrating over past history, the transport PDE governing sliding memory:
+To evolve the modal state vector $\mathbf{c}(t)$ continuously without re-integrating past history, we discretize the spatial operator $\frac{2}{\theta} \partial_x$ in the modal Chebyshev basis and enforce the inflow boundary condition $f_t(1) = u(t)$ weakly via a **Chebyshev-Gauss-Radau (CGR) Simultaneous Approximation Term (SAT)** (Hesthaven, Gottlieb & Gottlieb, *Spectral Methods for Time-Dependent Problems*).
 
-$$
-\frac{\partial f_t}{\partial t} = -\frac{\partial f_t}{\partial \tau}, \quad f_t(0) = u(t)
-$$
+### 3.1 Modal Chebyshev Differentiation Matrix
 
-is projected onto the orthonormal Chebyshev basis under the weight measure:
+Using the exact Chebyshev derivative identity $T_k'(x) = 2k \sum_{\substack{0 \le j < k \\ (k-j) \text{ odd}}} \tilde{\gamma}_j T_j(x)$ (with $\tilde{\gamma}_0 = \frac{1}{2}$, $\tilde{\gamma}_{j \ge 1} = 1$), the upper-triangular modal differentiation matrix $D \in \mathbb{R}^{K \times K}$ has exact entries:
 
 $$
-\omega(\tau) = \frac{1}{\sqrt{\tau(\theta - \tau)}}
+D_{j, k} = \begin{cases}
+k, & \text{if } j = 0,\; k > 0,\; k \text{ is odd} \\
+2k, & \text{if } j \ge 1,\; k > j,\; (k - j) \text{ is odd} \\
+0, & \text{otherwise}
+\end{cases}
 $$
 
-This yields an exact linear continuous-time ordinary differential equation:
+### 3.2 Chebyshev-Gauss-Radau Boundary Projection (SAT)
+
+Consider the $K$-point **Chebyshev-Gauss-Radau (CGR)** quadrature grid anchored at the inflow boundary $x_0 = +1$:
+
+$$
+x_j = \cos\!\left(\frac{2\pi j}{2K - 1}\right), \qquad w_0 = \frac{\pi}{2K - 1}, \qquad w_j = \frac{2\pi}{2K - 1} \quad (j = 1, \dots, K - 1)
+$$
+
+The Lagrange interpolant $\ell_0(x)$ centered at $x_0 = 1$ expands in the Chebyshev basis via the orthogonal weights $w_{\mathrm{norm}, k} \cdot w_0 = \frac{\gamma_k}{2K - 1}$:
+
+$$
+\ell_0(x) = \frac{1}{2K - 1} \sum_{k=0}^{K-1} \gamma_k T_k(x), \qquad \gamma_k = \pi w_{\mathrm{norm}, k} = \begin{cases}
+1, & k = 0 \\
+2, & k \ge 1
+\end{cases}
+$$
+
+Applying the weak CGR boundary penalty $\frac{2}{\theta} \tau_{\mathrm{SAT}} (u(t) - f_t(1)) \ell_0(x)$ with $\tau_{\mathrm{SAT}} = \frac{(2K - 1)^2}{2}$ (so $\alpha = \frac{\tau_{\mathrm{SAT}}}{2K - 1} = \frac{2K - 1}{2}$) and noting $f_t(1) = \sum_{k=0}^{K-1} c_k(t) T_k(1) = \mathbf{1}^T \mathbf{c}(t)$ yields the exact linear continuous-time state-space ODE:
 
 $$
 \frac{d\mathbf{c}(t)}{dt} = A \mathbf{c}(t) + B u(t)
 $$
 
-where:
-
-- **Basis scaling factors**: $R_0 = 1.0$, and $R_n = \sqrt{2.0}$ for $n \ge 1$.
-- **Continuous transition operator** $A \in \mathbb{R}^{K \times K}$ has elements:
+where the canonical continuous operators $A \in \mathbb{R}^{K \times K}$ and $B \in \mathbb{R}^{K \times 1}$ are:
 
 $$
-A_{n, k} = -\frac{1}{\theta} R_n R_k \cdot \begin{cases} 
-(-1)^{n - k}, & \text{if } n < k \\ 
-1.0, & \text{if } n \ge k 
-\end{cases}
+A = \frac{2}{\theta} \left( D - \alpha \, \boldsymbol{\gamma} \mathbf{1}^T \right), \qquad B = \frac{2\alpha}{\theta} \, \boldsymbol{\gamma}, \qquad \alpha = \frac{2K - 1}{2}
 $$
 
-- **Continuous input projection vector** $B \in \mathbb{R}^{K \times 1}$ is:
+**Exact Polynomial Reproduction Property**: For any input history $f_t(x)$ that is a polynomial of degree $\le K - 1$, $f_t(1) = \mathbf{1}^T \mathbf{c}(t) = u(t)$ holds identically, so the boundary residual vanishes and $\dot{\mathbf{c}} = \frac{2}{\theta} D \mathbf{c}$ satisfies the transport PDE with zero residual. For a constant input $u(t) = 1$, the steady-state fixed point is exactly $-A^{-1} B = [1, 0, \dots, 0]^T$.
+
+### 3.3 Analytical Lyapunov Stability & Finite-Dimensional Decay
+
+Rather than relying on an approximate Normal Plus Low-Rank (NPLR) identity $A + A^T = -B B^T$ (which does not hold in unweighted Euclidean norm for Chebyshev-weighted systems), the canonical CGR Spectral-SAT operator admits an **exact analytical Lyapunov stability certificate** in the CGR weighted energy norm.
+
+Define the symmetric positive-definite (SPD) discrete weighted energy matrix $P_{\mathrm{CGR}} \in \mathbb{R}^{K \times K}$:
 
 $$
-B_n = \frac{1}{\theta} R_n
+P_{\mathrm{CGR}} = V^T \, \mathrm{diag}\!\left( w_j (1 + x_j) \right) \, V \succ 0, \qquad V_{j, k} = T_k(x_j)
 $$
 
-### 3.1 Mathematical Solution to Vanishing Gradients: Algebraic vs. Exponential Decay
-
-In the linear continuous system $\dot{\mathbf{c}} = A \mathbf{c} + B u$, the state transition operator across an elapsed interval $t$ is the matrix exponential:
+where the factor $(1 + x_j) > 0$ vanishes at the outflow boundary $x = -1$ and strictly weights the interior and inflow nodes. For every truncation order $K \ge 1$ and window duration $\theta > 0$, the continuous operator $A$ satisfies the strict **Lyapunov dissipation inequality**:
 
 $$
-\Phi(t) = \exp(A t)
+A^T P_{\mathrm{CGR}} + P_{\mathrm{CGR}} A \prec 0
 $$
 
-The continuous matrix $A$ satisfies a skew-symmetric normal plus low-rank (NPLR) decomposition:
+By Lyapunov's Stability Theorem, every eigenvalue of $A$ lies strictly in the open left-half complex plane (strictly Hurwitz):
 
 $$
-A = S - \frac{1}{2} B B^T, \quad S^T = -S
+\max_{0 \le i < K} \mathrm{Re}\!\left(\lambda_i(A)\right) < 0
 $$
 
-Because $S$ is skew-symmetric ($S^T = -S$), its eigenvalues are purely imaginary ($\lambda \in i\mathbb{R}$), meaning the energy norm is conserved:
+**Clarification on Finite-Dimensional Decay**: Because $A \in \mathbb{R}^{K \times K}$ is finite-dimensional and strictly Hurwitz, the matrix exponential satisfies an **exponential** asymptotic upper bound:
 
 $$
-\frac{d}{dt} \|\mathbf{c}(t)\|^2 = \mathbf{c}^T (A + A^T) \mathbf{c} = -\left( B^T \mathbf{c} \right)^2 \le 0
+\left\| e^{A t} \right\| \le M e^{-\alpha_0 t}, \qquad \alpha_0 = \min_{0 \le i < K} \left| \mathrm{Re}\!\left(\lambda_i(A)\right) \right| > 0
 $$
 
-Rather than decaying exponentially as $e^{-\alpha t}$, the historical memory and backpropagated gradients in the orthogonal Chebyshev state space decay **algebraically (polynomially)**:
-
-$$
-\| \Phi(t) \| = O\left( \frac{1}{t} \right)
-$$
-
-This polynomial memory decay is the rigorous mathematical explanation for why the Chebyshev State-Space Cell retains long-term historical dependencies across hundreds of time steps without vanishing gradients and without needing non-linear forget gates.
+rather than asymptotic $O(1/t)$ algebraic decay (which only arises in infinite-dimensional operator limits). This exponential bound guarantees **Bounded-Input Bounded-Output (BIBO) stability** over arbitrary streaming horizons ($T \to \infty$), while the Minimax Chebyshev basis retains smooth historical trajectories accurately across the entire sliding window $[0, \theta]$ without non-linear recurrent gates.
 
 ---
 
 ## 4. Continuous-to-Discrete Conversion: Double-Precision Tustin Transform
 
-To deploy this continuous dynamical system to digital computers and embedded microcontrollers operating at discrete sampling steps $\Delta t$, we discretize $(A, B)$ using the **Bilinear / Tustin Transform**:
+To execute the continuous dynamical system at discrete sensor sampling intervals $\Delta t > 0$, we apply the **Bilinear (Tustin) Transform**:
 
 $$
 s \approx \frac{2}{\Delta t} \frac{z - 1}{z + 1}
 $$
 
-Substituting into the continuous transfer operator $(sI - A)^{-1} B$ yields the discrete-time recursive update:
+yielding the discrete-time linear recurrence:
 
 $$
 \mathbf{s}_{t+1} = \bar{A} \mathbf{s}_t + \bar{B} x_t
 $$
 
-where:
+with discrete matrices computed in `float64` via linear solves (avoiding explicit matrix inversion) before casting to `float32`:
 
 $$
 \bar{A} = \left( I - \frac{\Delta t}{2} A \right)^{-1} \left( I + \frac{\Delta t}{2} A \right)
@@ -172,38 +187,47 @@ $$
 \bar{B} = \left( I - \frac{\Delta t}{2} A \right)^{-1} (\Delta t B)
 $$
 
-### 4.1 Guaranteed Discrete Stability
+### 4.1 Conformal Preservation of Stability
 
-The Bilinear Transform is a conformal mapping that maps the open left-half complex plane $\mathrm{Re}(s) < 0$ strictly into the interior of the unit disk:
+The Bilinear Transform maps the open left-half complex plane $\mathrm{Re}(s) < 0$ conformally onto the strict interior of the unit disk:
 
 $$
 |z| < 1 \iff \mathrm{Re}(s) < 0
 $$
 
-Because all eigenvalues of the continuous Chebyshev matrix satisfy $\mathrm{Re}(\lambda_i(A)) < 0$, every discrete eigenvalue $\bar{\lambda}_i$ of $\bar{A}$ satisfies:
+Because $A$ is strictly Hurwitz by Theorem 3.3, every discrete eigenvalue of $\bar{A}$ satisfies:
 
 $$
-\left| \lambda_i(\bar{A}) \right| < 1.0, \quad \forall i \in \{0, \dots, K-1\}
+\rho(\bar{A}) = \max_{0 \le i < K} \left| \lambda_i(\bar{A}) \right| < 1.0
 $$
 
-This guarantees **Bounded-Input Bounded-Output (BIBO) stability** across infinite sequence horizons. Matrix inversion $\left(I - \frac{\Delta t}{2} A\right)^{-1}$ is computed in double-precision `float64` before casting to single-precision `float32`, eliminating numerical drift.
+This guarantees unconditional discrete BIBO stability for every $\Delta t > 0$, $K \ge 1$, and $\theta > 0$, verified empirically across $10{,}000$ streaming steps in `float32`.
 
 ---
 
-## 5. Depthwise Multi-Sensor State Space and Non-Linear Readout
+## 5. Depthwise Multi-Sensor Architecture & Option A Readout Distillation
 
-For a multi-sensor input $x_t \in \mathbb{R}^{D_{\mathrm{in}}}$ (e.g., $D_{\mathrm{in}} = 14$ in NASA C-MAPSS):
+For a multi-channel sensor stream $x_t \in \mathbb{R}^{D_{\mathrm{in}}}$ (e.g., $D_{\mathrm{in}} = 14$ in NASA C-MAPSS FD001):
 
-1. **Depthwise Decomposition**: Each physical sensor channel $d \in \{1, \dots, D_{\mathrm{in}}\}$ maintains its own independent state vector $\mathbf{s}_t^{(d)} \in \mathbb{R}^K$, sharing transition dynamics $(\bar{A}, \bar{B})$:
-
-$$
-\mathbf{s}_{t+1}^{(d)} = \bar{A} \mathbf{s}_t^{(d)} + \bar{B} \cdot \mathrm{clamp}\!\left( \frac{x_t^{(d)} - \mu_d}{\sigma_d},\; -5.0,\; 5.0 \right)
-$$
-
-2. **Non-Linear Decoupled Readout**: Cross-channel interactions and decision boundaries are handled outside the recurrent loop by a 2-layer Multi-Layer Perceptron:
+1. **Frozen Analytical Depthwise Chebyshev Cell**: Each physical sensor channel $d \in \{1, \dots, D_{\mathrm{in}}\}$ maintains an independent order-$K$ state vector $\mathbf{s}_t^{(d)} \in \mathbb{R}^K$ sharing the frozen analytical operators $(\bar{A}, \bar{B})$:
 
 $$
-y_t = W_2 \, \mathrm{ReLU}\!\left( W_1 [\mathbf{s}_t^{(1)}, \dots, \mathbf{s}_t^{(D_{\mathrm{in}})}] + b_1 \right) + b_2
+\mathbf{s}_{t+1}^{(d)} = \bar{A} \mathbf{s}_t^{(d)} + \bar{B} \cdot \mathrm{sanitize}\!\left( \frac{x_t^{(d)} - \mu_d}{\sigma_d} \right)
 $$
 
-This hybrid design eliminates all sequential transcendental operations ($\sigma, \tanh$) from the recurrent state loop while preserving $>95\%$ of multi-layer LSTM expressive capacity.
+where $\mathrm{sanitize}(\cdot)$ quarantines non-finite values (`NaN`, `±Inf`) to $0.0$ via bit-level IEEE-754 exponent masking and clamps finite outliers to $[-5.0, 5.0]$.
+
+2. **Trainable Decoupled Readout MLP (Option A)**: Cross-channel nonlinearities are learned outside the recurrent loop by a compact 2-layer MLP over the flattened Chebyshev state vector:
+
+$$
+\hat{y}_t = W_2 \, \mathrm{ReLU}\!\left( W_1 \left[\mathbf{s}_t^{(1)}, \dots, \mathbf{s}_t^{(D_{\mathrm{in}})}\right] + b_1 \right) + b_2
+$$
+
+3. **Option A Multi-Objective Distillation with Fast State Precomputation**:
+   Because $(\bar{A}, \bar{B})$ are strictly frozen analytical buffers, the state tensor $S \in \mathbb{R}^{N \times (D_{\mathrm{in}} \cdot K)}$ is precomputed once before training, and only the exported Readout MLP parameters $(W_1, b_1, W_2, b_2)$ are optimized under the convex distillation objective:
+
+$$
+\mathcal{L} = (1 - \lambda) \, \mathrm{MSE}\!\left(\hat{y}_{\mathrm{student}}, y_{\mathrm{true}}\right) + \lambda \, \mathrm{MSE}\!\left(\hat{y}_{\mathrm{student}}, \hat{y}_{\mathrm{teacher}}\right)
+$$
+
+with $\lambda \in [0, 1]$ (default $\lambda = 0.5$ when ground-truth labels $y_{\mathrm{true}}$ are available, and automatic fallback to $\lambda = 1.0$ on unlabeled calibration datasets).

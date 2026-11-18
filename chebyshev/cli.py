@@ -10,8 +10,12 @@ import numpy as np
 import torch
 
 from chebyshev.benchmark import compare_benchmarks, run_c_benchmark, run_pytorch_benchmark
-from chebyshev.datasets import create_dataloader, generate_synthetic_smoke_data, load_cmapss_fd001
-from chebyshev.distill import distill
+from chebyshev.datasets import (
+    create_dataloader,
+    generate_synthetic_smoke_data,
+    load_cmapss_fd001_splits,
+)
+from chebyshev.distill import distill, evaluate_rmse
 from chebyshev.exporter import export_to_c_header
 from chebyshev.models import StudentModel
 from chebyshev.teacher import CMapssLSTMTeacher, load_teacher, save_teacher, train_teacher
@@ -32,17 +36,28 @@ def get_default_out_dir() -> Path:
 
 
 def run_full_smoke_test(out_dir: Path, seed: int = 42) -> int:
-    """Executes full automated pipeline on synthetic data in under 15 seconds."""
+    """Executes full automated pipeline on synthetic data with held-out validation."""
     set_seed(seed)
     print("=" * 80)
     print("CHEBYSHEV-COMPRESSOR: RUNNING 15-SECOND FULL PIPELINE SMOKE-TEST")
     print(f"Reproducibility Seed: {seed}")
     print("=" * 80)
 
-    # 1. Generate synthetic dataset
-    print("[1/4] Generating synthetic multi-sensor machinery data...")
-    X, y, mean, std = generate_synthetic_smoke_data(num_samples=128, seq_len=30, num_channels=14, seed=seed)
-    loader = create_dataloader(X, y, batch_size=32)
+    # 1. Generate synthetic dataset and split into disjoint train / held-out validation sets
+    print("[1/4] Generating synthetic multi-sensor machinery data (80/20 held-out split)...")
+    X, y, _, _ = generate_synthetic_smoke_data(num_samples=160, seq_len=30, num_channels=14, seed=seed)
+    split_idx = 128
+    X_train, y_train = X[:split_idx], y[:split_idx]
+    X_val, y_val = X[split_idx:], y[split_idx:]
+
+    # Fit normalization strictly on training split only
+    flat_train = X_train.reshape(-1, X_train.shape[-1])
+    mean = np.mean(flat_train, axis=0).astype(np.float32)
+    std = np.std(flat_train, axis=0).astype(np.float32)
+    std = np.where(std < 1e-4, 1.0, std)
+
+    train_loader = create_dataloader(X_train, y_train, batch_size=32, shuffle=True)
+    val_loader = create_dataloader(X_val, y_val, batch_size=32, shuffle=False)
 
     # Save calibration artifact
     calib_path = out_dir / "calib.npy"
@@ -52,27 +67,31 @@ def run_full_smoke_test(out_dir: Path, seed: int = 42) -> int:
     # 2. Train baseline teacher
     print("[2/4] Training baseline PyTorch LSTM teacher...")
     teacher = CMapssLSTMTeacher(num_channels=14, hidden_dim=32, num_layers=2, out_features=1)
-    train_teacher(teacher, loader, epochs=3, lr=3e-3, verbose=False)
+    train_teacher(teacher, train_loader, epochs=3, lr=3e-3, verbose=False)
     teacher_path = out_dir / "teacher.pt"
     save_teacher(teacher, teacher_path)
-    print(f"      Saved teacher checkpoint to: {teacher_path}")
+    teacher_val_rmse = evaluate_rmse(teacher, val_loader, scale=1.0)
+    print(f"      Saved teacher checkpoint to: {teacher_path} (Held-out Val RMSE: {teacher_val_rmse:.5f})")
 
-    # 3. Distill into Chebyshev student
-    print("[3/4] Distilling trajectory into Depthwise Chebyshev Student...")
+    # 3. Distill into Chebyshev student (Option A: Fast State Precomputation + Joint Loss)
+    print("[3/4] Distilling Readout MLP over frozen Chebyshev states (Option A)...")
     student = StudentModel(num_channels=14, order=8, hidden_dim=32, out_features=1, window_size=30.0)
     distill(
         teacher=teacher,
         student=student,
-        dataloader=loader,
+        dataloader=train_loader,
+        val_dataloader=val_loader,
         channel_mean=mean,
         channel_std=std,
-        epochs=5,
+        epochs=10,
         lr=3e-3,
+        distill_lambda=0.5,
         verbose=False,
     )
+    student_val_rmse = evaluate_rmse(student, val_loader, scale=1.0)
     student_path = out_dir / "student.pt"
     torch.save(student.state_dict(), str(student_path))
-    print(f"      Saved student model to: {student_path}")
+    print(f"      Saved student model to: {student_path} (Held-out Val RMSE: {student_val_rmse:.5f})")
 
     # 4. Export C99 single-header library
     print("[4/4] Exporting C99 zero-dependency header...")
@@ -98,6 +117,8 @@ def run_full_smoke_test(out_dir: Path, seed: int = 42) -> int:
             "pt_metrics": pt_metrics,
             "speedup_x": comparison["speedup_x"],
             "ram_reduction_pct": comparison["ram_reduction_pct"],
+            "teacher_val_rmse": teacher_val_rmse,
+            "student_val_rmse": student_val_rmse,
         }
         with open(bench_json_path, "w", encoding="utf-8") as f:
             json.dump(bench_data, f, indent=2)
@@ -106,7 +127,7 @@ def run_full_smoke_test(out_dir: Path, seed: int = 42) -> int:
         print(f"      Benchmark warning (compiler not invoked): {e}")
 
     # 6. Generate reproducibility manifest
-    manifest = generate_reproducibility_manifest(
+    generate_reproducibility_manifest(
         out_dir=out_dir,
         seed=seed,
         hyperparameters={
@@ -116,7 +137,9 @@ def run_full_smoke_test(out_dir: Path, seed: int = 42) -> int:
             "window_size": 30.0,
             "teacher_hidden_dim": 32,
             "teacher_layers": 2,
-            "smoke_epochs": 5,
+            "smoke_epochs": 10,
+            "distill_lambda": 0.5,
+            "distillation_mode": "option_a_fixed_analytical_precomputed",
         },
         benchmark_metrics={
             "c_latency_us": c_metrics["latency_us"] if c_metrics else None,
@@ -124,6 +147,8 @@ def run_full_smoke_test(out_dir: Path, seed: int = 42) -> int:
             "speedup_x": comparison["speedup_x"] if comparison else None,
             "ram_bytes": c_metrics.get("ram_bytes", 448) if c_metrics else 448,
             "ram_reduction_pct": comparison["ram_reduction_pct"] if comparison else None,
+            "teacher_val_rmse": teacher_val_rmse,
+            "student_val_rmse": student_val_rmse,
         },
     )
     print(f"      Saved reproducibility manifest to: {out_dir / 'reproducibility_manifest.json'}")
@@ -139,18 +164,36 @@ def cmd_train_teacher(args: argparse.Namespace) -> int:
     print(f"--- Training Teacher Network -> {out_path} (Seed: {seed}) ---")
 
     if args.smoke:
-        X, y, _, _ = generate_synthetic_smoke_data(num_samples=128, seq_len=30, num_channels=14, seed=seed)
+        X, y, _, _ = generate_synthetic_smoke_data(num_samples=160, seq_len=30, num_channels=14, seed=seed)
+        X_train, y_train = X[:128], y[:128]
+        X_val, y_val = X[128:], y[128:]
+        rul_scale = 1.0
     else:
-        X, y, _, _ = load_cmapss_fd001(max_engines=args.max_engines, window_size=args.window_size)
+        splits = load_cmapss_fd001_splits(
+            data_dir=getattr(args, "data_dir", None),
+            max_engines=args.max_engines,
+            window_size=args.window_size,
+            seed=seed,
+        )
+        X_train, y_train = splits["X_train"], splits["y_train"]
+        X_val, y_val = splits["X_val"], splits["y_val"]
+        rul_scale = splits["max_rul"]
+        print(
+            f"Loaded C-MAPSS FD001 split: {len(splits['train_units'])} train engines, "
+            f"{len(splits['val_units'])} held-out validation engines."
+        )
 
-    loader = create_dataloader(X, y, batch_size=args.batch_size)
+    train_loader = create_dataloader(X_train, y_train, batch_size=args.batch_size, shuffle=True)
+    val_loader = create_dataloader(X_val, y_val, batch_size=args.batch_size, shuffle=False)
     teacher = CMapssLSTMTeacher(
-        num_channels=X.shape[2],
+        num_channels=X_train.shape[2],
         hidden_dim=args.hidden_dim,
         num_layers=args.num_layers,
-        out_features=y.shape[1],
+        out_features=y_train.shape[1],
     )
-    train_teacher(teacher, loader, epochs=args.epochs, lr=args.lr, verbose=True)
+    train_teacher(teacher, train_loader, epochs=args.epochs, lr=args.lr, verbose=True)
+    val_rmse = evaluate_rmse(teacher, val_loader, scale=rul_scale)
+    print(f"Teacher Held-Out Validation RMSE: {val_rmse:.4f} (scale={rul_scale:.1f})")
     save_teacher(teacher, out_path)
     print(f"Teacher model successfully saved to {out_path}")
     return 0
@@ -170,18 +213,39 @@ def cmd_distill(args: argparse.Namespace) -> int:
     teacher = load_teacher(teacher_path)
 
     if args.smoke or getattr(args, "smoke_test", False):
-        X, y, mean, std = generate_synthetic_smoke_data(
-            num_samples=128, seq_len=args.window_size, num_channels=teacher.num_channels, seed=seed
+        X, y, _, _ = generate_synthetic_smoke_data(
+            num_samples=160, seq_len=args.window_size, num_channels=teacher.num_channels, seed=seed
         )
+        X_train, y_train = X[:128], y[:128]
+        X_val, y_val = X[128:], y[128:]
+        flat_train = X_train.reshape(-1, X_train.shape[-1])
+        mean = np.mean(flat_train, axis=0).astype(np.float32)
+        std = np.std(flat_train, axis=0).astype(np.float32)
+        std = np.where(std < 1e-4, 1.0, std)
+        rul_scale = 1.0
     else:
-        X, y, mean, std = load_cmapss_fd001(max_engines=args.max_engines, window_size=args.window_size)
+        splits = load_cmapss_fd001_splits(
+            data_dir=getattr(args, "data_dir", None),
+            max_engines=args.max_engines,
+            window_size=args.window_size,
+            seed=seed,
+        )
+        X_train, y_train = splits["X_train"], splits["y_train"]
+        X_val, y_val = splits["X_val"], splits["y_val"]
+        mean, std = splits["mean"], splits["std"]
+        rul_scale = splits["max_rul"]
+        print(
+            f"Loaded C-MAPSS FD001 split: {len(splits['train_units'])} train engines, "
+            f"{len(splits['val_units'])} held-out validation engines."
+        )
 
-    # Save calibration vectors as artifact
+    # Save calibration vectors as artifact (fit strictly on training split)
     calib_out = out_path.parent / "calib.npy"
     save_calibration(mean, std, calib_out)
     print(f"Saved calibration vectors to {calib_out}")
 
-    loader = create_dataloader(X, y, batch_size=args.batch_size)
+    train_loader = create_dataloader(X_train, y_train, batch_size=args.batch_size, shuffle=True)
+    val_loader = create_dataloader(X_val, y_val, batch_size=args.batch_size, shuffle=False)
 
     student = StudentModel(
         num_channels=teacher.num_channels,
@@ -194,12 +258,21 @@ def cmd_distill(args: argparse.Namespace) -> int:
     distill(
         teacher=teacher,
         student=student,
-        dataloader=loader,
+        dataloader=train_loader,
+        val_dataloader=val_loader,
         channel_mean=mean,
         channel_std=std,
         epochs=args.epochs,
         lr=args.lr,
+        distill_lambda=getattr(args, "distill_lambda", 0.5),
         verbose=True,
+    )
+
+    teacher_val_rmse = evaluate_rmse(teacher, val_loader, scale=rul_scale)
+    student_val_rmse = evaluate_rmse(student, val_loader, scale=rul_scale)
+    print(
+        f"Held-Out Validation Ground-Truth RMSE -> Teacher: {teacher_val_rmse:.4f} | "
+        f"Student: {student_val_rmse:.4f} (scale={rul_scale:.1f})"
     )
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -319,6 +392,7 @@ def build_parser() -> argparse.ArgumentParser:
     # cheb train-teacher
     p_teacher = subparsers.add_parser("train-teacher", help="Train baseline PyTorch LSTM teacher network.")
     p_teacher.add_argument("--smoke", action="store_true", help="Use synthetic dataset for quick training.")
+    p_teacher.add_argument("--data-dir", type=str, default=None, help="Directory containing C-MAPSS FD001 dataset.")
     p_teacher.add_argument("--max-engines", type=int, default=None, help="Limit number of C-MAPSS engines.")
     p_teacher.add_argument("--window-size", type=int, default=30, help="Sliding window size.")
     p_teacher.add_argument("--hidden-dim", type=int, default=64, help="LSTM hidden units.")
@@ -334,6 +408,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_distill.add_argument("--teacher", type=str, default=str(default_dir / "teacher.pt"), help="Teacher checkpoint path.")
     p_distill.add_argument("--smoke", action="store_true", help="Use synthetic data.")
     p_distill.add_argument("--smoke-test", action="store_true", help="Alias for --smoke.")
+    p_distill.add_argument("--data-dir", type=str, default=None, help="Directory containing C-MAPSS FD001 dataset.")
     p_distill.add_argument("--max-engines", type=int, default=None, help="Limit C-MAPSS engines.")
     p_distill.add_argument("--order", type=int, default=8, help="Chebyshev polynomial order K.")
     p_distill.add_argument("--window-size", type=int, default=30, help="Sliding window length.")
@@ -341,6 +416,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_distill.add_argument("--epochs", type=int, default=15, help="Distillation epochs.")
     p_distill.add_argument("--batch-size", type=int, default=32, help="Batch size.")
     p_distill.add_argument("--lr", type=float, default=2e-3, help="Learning rate.")
+    p_distill.add_argument(
+        "--distill-lambda",
+        type=float,
+        default=0.5,
+        help="KD weight lambda in [0, 1] balancing ground-truth MSE and teacher mimicry MSE (auto 1.0 if unlabeled).",
+    )
     p_distill.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility.")
     p_distill.add_argument("--out", type=str, default=str(default_dir / "student.pt"), help="Output path.")
 

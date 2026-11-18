@@ -3,7 +3,7 @@ import pytest
 import torch
 
 from chebyshev.cli import main
-from chebyshev.datasets import load_cmapss_fd001
+from chebyshev.datasets import load_cmapss_fd001, load_cmapss_fd001_splits
 
 
 def test_cmapss_dataset_loading_and_windowing(tmp_path: Path):
@@ -13,7 +13,7 @@ def test_cmapss_dataset_loading_and_windowing(tmp_path: Path):
         window_size=20,
         stride=2,
     )
-    
+
     assert X.ndim == 3
     assert X.shape[1] == 20  # window size
     assert X.shape[2] == 14  # 14 informative sensors
@@ -22,6 +22,28 @@ def test_cmapss_dataset_loading_and_windowing(tmp_path: Path):
     assert std.shape == (14,)
     assert not torch.isnan(torch.from_numpy(X)).any()
     assert not torch.isnan(torch.from_numpy(y)).any()
+
+
+def test_cmapss_heldout_engine_split_disjoint_and_no_leakage(tmp_path: Path):
+    splits = load_cmapss_fd001_splits(
+        data_dir=tmp_path,
+        max_engines=10,
+        window_size=20,
+        stride=2,
+        val_fraction=0.2,
+        seed=42,
+    )
+
+    train_units = set(splits["train_units"])
+    val_units = set(splits["val_units"])
+    assert len(train_units) == 8
+    assert len(val_units) == 2
+    assert train_units.isdisjoint(val_units), "Engine IDs leaked between train and val splits!"
+    assert splits["X_train"].shape[1:] == (20, 14)
+    assert splits["X_val"].shape[1:] == (20, 14)
+    assert splits["mean"].shape == (14,)
+    assert splits["std"].shape == (14,)
+    assert (splits["std"] > 0).all()
 
 
 def test_cli_subcommands_chain(tmp_path: Path):

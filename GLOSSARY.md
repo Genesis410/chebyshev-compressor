@@ -29,12 +29,12 @@ The permanent, unrecoverable corruption of recurrent state memory caused by the 
 _Avoid_: Memory Leak, Buffer Overflow, Value Explosion
 
 **Input Sanity Clamping**:
-An explicit, IEEE-754 range-bounding check applied immediately after normalization in both Python and C to quarantine faulty sensor readings and prevent state poisoning even under `-ffast-math`.
+An explicit, strict-aliasing-safe IEEE-754 exponent bit-mask check (`0x7F800000U` via `memcpy`) followed by `[-5.0, 5.0]` range clamping applied immediately after normalization in both Python and C to quarantine `NaN`/`±Inf` and extreme spikes even under `-ffast-math` / `-ffinite-math-only`.
 _Avoid_: Error Throwing, Dynamic Filtering, isnan-check
 
-**Trajectory Distillation**:
-The optimization process of training the Student model to match both the intermediate hidden state trajectories and final output logits of the Teacher model across a representative calibration dataset.
-_Avoid_: Direct Weight Conversion, Weight Surgery, Closed-Form Projection
+**Readout Distillation (Option A)**:
+The optimization process of keeping the analytical Chebyshev-Gauss-Radau operators $(\bar{A}, \bar{B})$ frozen, precomputing the Chebyshev state tensor $S$ once, and training only the exported Readout Head under a joint ground-truth + teacher mimicry objective (automatically falling back to $\lambda = 1.0$ on unlabeled calibration data).
+_Avoid_: Direct Weight Conversion, Weight Surgery, Discarded Alignment Adapter
 
 **Readout Head**:
 The lightweight non-linear feedforward projection layer (e.g., 2-layer MLP with ReLU) applied to the Chebyshev State Vector to produce final predictions.

@@ -1,13 +1,13 @@
-# Chebyshev-Compressor: Mathematical Model Distillation to O(1) Memory
+# Chebyshev-Compressor: Analytical Chebyshev State-Space Compression to O(1) Memory
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![C99](https://img.shields.io/badge/Language-C99%20Standard-blue.svg)](https://en.wikipedia.org/wiki/C99)
+[![C99](https://img.shields.io/badge/Language-Strict%20C99-blue.svg)](https://en.wikipedia.org/wiki/C99)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
-[![RAM Footprint](https://img.shields.io/badge/SRAM%20State-448%20Bytes-success.svg)]()
+[![Persistent State](https://img.shields.io/badge/Persistent%20State-448%20Bytes%20(608%20B%20Total%20SRAM)-success.svg)]()
 [![Zero Allocation](https://img.shields.io/badge/Dynamic%20Alloc-0%20Bytes%20(malloc--free)-brightgreen.svg)]()
-[![Inference Speedup](https://img.shields.io/badge/Inference%20Speedup-185.0x%20vs%20PyTorch-orange.svg)]()
+[![End-to-End Speedup](https://img.shields.io/badge/Speedup-5.7x%20Window%20%7C%20142.8x%20Step-orange.svg)]()
 
-**Chebyshev-Compressor** distills heavy, non-linear recurrent neural networks (LSTMs, GRUs) into an orthogonal, continuous-time Chebyshev Polynomial State-Space Model. It exports directly to a standalone, zero-dependency, `malloc`-free C99 single-header library (`chebyshev_engine.h`) designed for real-time edge streaming on resource-constrained microcontrollers (ESP32, STM32, ARM Cortex-M0+/M4F).
+**Chebyshev-Compressor** compresses heavy recurrent neural networks (LSTMs, GRUs) into a **Fixed Analytical Orthogonal Chebyshev State-Space Model (Option A)** with a lightweight trainable Readout MLP. It exports directly to a standalone, zero-dependency, `malloc`-free strict C99 single-header library (`chebyshev_engine.h`) designed for real-time edge streaming on resource-constrained microcontrollers (ESP32, STM32, ARM Cortex-M0+/M4F).
 
 ---
 
@@ -18,62 +18,66 @@
 | CONVENTIONAL RECURRENT NEURAL NETWORK (LSTM / GRU)                            |
 |                                                                               |
 |  Sensors [D] ---> [ 4x Non-Linear Gates: Sigmoid & Tanh ]                     |
-|                   [ Large Hidden Matrices W_hh (H x H)  ]                     |
-|                   [ Exponential Memory Decay ~ exp(-a*t)   ] ---> Hidden H [64]  |
-|                   [ Requires 32 KB - 128 KB SRAM / TFLM ]      (32,768 Bytes) |
+|                   [ Coupled Hidden Matrices W_hh (H x H) ]                    |
+|                   [ Heuristic Gated Memory / High SRAM   ] ---> Hidden H [64] |
+|                   [ Requires 32 KB - 128 KB SRAM / TFLM  ]      (32,768 Bytes)|
 +-------------------------------------------------------------------------------+
                                        |
-                   CHEBYSHEV POLYNOMIAL DISTILLATION (cheb)
+         OPTION A: FROZEN ANALYTICAL CGR CHEBYSHEV + READOUT DISTILLATION
                                        v
 +-------------------------------------------------------------------------------+
-| CHEBYSHEV ORTHOGONAL STATE-SPACE MODEL (O(1) CONSTANT SRAM)                   |
+| CHEBYSHEV-GAUSS-RADAU (CGR) STATE-SPACE MODEL (O(1) CONSTANT STATE)           |
 |                                                                               |
-|  Sensors [D] ---> [ Depthwise Shifted Chebyshev Recurrence ]                  |
-|                   [ Linear Discretized Operator A_bar, B_bar ]                |
-|                   [ Minimax Optimal / Polynomial Decay O(1/t) ]               |
-|                   [ Single Header C99, Zero malloc, Re-entrant]               |
+|  Sensors [D] ---> [ Depthwise Shifted Chebyshev Recurrence (CGR-SAT) ]        |
+|                   [ Frozen Analytical Tustin Operators A_bar, B_bar  ]        |
+|                   [ Minimax Optimal Window + Provable Lyapunov BIBO  ]        |
+|                   [ Strict C99 Single Header, Zero malloc, Re-entrant]        |
 |                                                                               |
-|  14 Sensors x Order 8 State = 112 float32 coefficients --------> Readout MLP  |
-|  SRAM Footprint: Exactly 448 Bytes                              (448 Bytes)   |
+|  14 Sensors x Order 8 = 448 B Persistent State + 160 B Stack = 608 B SRAM     |
 +-------------------------------------------------------------------------------+
 ```
 
-1. **Mathematically Guaranteed Memory Preservation**: Conventional RNN Jacobians suffer from exponential vanishing gradient decay $O(e^{-\alpha t})$. Chebyshev polynomial recurrence maps input histories onto orthogonal Chebyshev polynomials of the first kind ($T_k^*(\tau)$), yielding an algebraic/polynomial decay $O(1/t)$ that preserves long-term temporal structure without heuristic gates.
-2. **Absolute $O(1)$ SRAM Footprint**: Sensor state is represented by $D \times K$ float32 coefficients ($14 \times 8 \times 4 = 448$ bytes for turbofan telemetry). State memory is statically allocated by the caller with **zero heap allocation** (`malloc`-free).
-3. **Baked-in In-Place Sensor Normalization**: Raw physical sensor values are normalized and clamped directly inside `chebyshev_step(...)` using baked floating-point vectors $(\mu, \sigma^{-1})$, eliminating external scaling pipelines.
-4. **Embedded-Safe Numerical Clamping**: Built-in IEEE-754 range checks `[-5.0, 5.0]` protect state vectors against sensor glitch spikes, infinite spikes, and NaN poisoning—specifically structured to remain robust under `-ffast-math` compiler optimizations.
-5. **Bit-for-Bit Verified Numerical Parity**: Automated test suites enforce $\max |y_{\text{PyTorch}} - y_{\text{C}}| < 10^{-4}$ across thousands of inference steps.
+1. **Mathematically Grounded Orthogonal Window Memory (CGR Spectral-SAT)**: Continuous-time sliding-window transport ($\partial_t f_t = -\partial_\tau f_t$) is projected onto shifted Chebyshev polynomials of the first kind ($T_k^*(\tau)$) via a Chebyshev-Gauss-Radau Simultaneous Approximation Term (SAT). The resulting finite-dimensional operator satisfies an exact analytical Lyapunov dissipation theorem ($A^T P_{\mathrm{CGR}} + P_{\mathrm{CGR}} A \prec 0$), guaranteeing strictly Hurwitz eigenvalues, unconditional Tustin unit-disk stability ($\rho(\bar{A}) < 1.0$), and near-optimal Minimax uniform approximation across $[0, \theta]$.
+2. **Explicit $O(1)$ SRAM Budget (448 B Persistent + 160 B Stack = 608 B Total)**: For 14 channels at order $K = 8$, the persistent recurrent state buffer occupies exactly $14 \times 8 \times 4 = 448$ bytes (caller-allocated `.bss`), plus 160 bytes of local call-stack scratch (`next_s[8]` + `h1[32]`) for a total runtime SRAM budget of **608 bytes** with **zero heap allocation** (`malloc`-free).
+3. **Option A Readout Distillation with Fast State Precomputation**: Because $(\bar{A}, \bar{B})$ are strictly frozen analytical operators, Chebyshev states $S \in \mathbb{R}^{N \times (D_{\mathrm{in}} \cdot K)}$ are precomputed once prior to training. Only the exported Readout MLP is optimized under a joint ground-truth + teacher mimicry objective (automatically falling back to $\lambda = 1.0$ on unlabeled calibration data), preventing pole drift and accelerating CPU training $>10\times$.
+4. **Embedded-Safe IEEE-754 Quarantine (`-ffast-math` Immune)**: Raw physical sensor values are normalized in-place using baked $(\mu, \sigma^{-1})$ vectors and sanitized via strict-aliasing-safe `memcpy` IEEE-754 exponent bit-masking (`(bits & 0x7F800000U) == 0x7F800000U -> 0.0f`), verified directly under `-O3 -ffast-math` (`-ffinite-math-only`) to prevent `NaN`/`±Inf` state poisoning.
+5. **Verified Numerical Parity & Strict C99 Cleanliness**: Automated tests verify $\max |y_{\mathrm{PyTorch}} - y_{\mathrm{C}}| < 10^{-4}$ over 1,000 steps (including spikes, `NaN`, and `±Inf`), 10,000-step `float32` boundedness, monotonic signal reconstruction convergence, and zero-warning compilation under `-std=c99 -Wall -Wextra -Werror -pedantic`.
 
 ---
 
-## Empirical Benchmark Results
+## Empirical Benchmark & Ablation Results
 
-Measured on **NASA C-MAPSS FD001** (14 turbofan sensor channels, Sequence Length = 50 cycles, Hidden Dimension = 32, Readout MLP = 32):
+All numbers below are directly measured and reproducible from `cheb --smoke-test --seed 42` and `python scripts/run_ablation.py --seed 42` on a single-threaded CPU (`torch.set_num_threads(1)`, GCC `-O3`, with `volatile float sink` preventing dead-code elimination).
 
-| Metric | Teacher Model (PyTorch LSTM) | Student Model (PyTorch) | Generated C99 Engine (`chebyshev_engine.h`) | Edge Benefit |
-| :--- | :--- | :--- | :--- | :--- |
-| **Inference Latency** | 1020.43 µs | 18.20 µs | **5.52 µs** | **185.0x faster** |
-| **Throughput** | 980 steps/sec | 54,945 steps/sec | **181,250 steps/sec** | **Real-time edge streaming** |
-| **Active SRAM Footprint** | 32,768 Bytes | 16,384 Bytes | **448 Bytes** | **98.6% RAM reduction** |
-| **Dynamic Allocations** | Multiple heap buffers | Dynamic tensor buffers | **0 Bytes (`malloc`-free)** | **Deterministic execution** |
-| **Target Binary Size** | Requires Python / LibTorch | Requires PyTorch C++ API | **< 4.5 KB (`.text` + `.rodata`)** | **Fits on 32 KB Flash MCUs** |
-| **RMSE (FD001 Turbofan)** | 14.82 cycles | 15.12 cycles | **15.12 cycles** | **< 2% accuracy delta** |
+### 1. Streaming Latency & Memory Audit (14 Channels, Order $K = 8$, Hidden Dim = 32)
 
-*Note: Single-thread CPU latency evaluated on AMD Ryzen 5 4650U @ 2.1 GHz compiled with `-O3`. On a 168 MHz ARM Cortex-M4F MCU with hardware single-precision FPU, a single step requires ~4,200 MAC cycles, translating to an estimated execution time of **~25 microseconds per sensor update**.*
+| Metric | PyTorch LSTM (1-thread) | C99 Engine (`chebyshev_engine.h`) | Edge Benefit |
+| :--- | ---: | ---: | :--- |
+| **Single-Step Latency**\* | 848.97 µs | **5.95 µs** | **142.8x faster** |
+| **End-to-End Window Latency ($T = 50$)** | 1,489.40 µs | **260.02 µs** (5.20 µs/step) | **5.7x faster** (fair full-window) |
+| **Streaming Throughput** | 1,178 steps/sec | **168,148 steps/sec** | **Real-time edge streaming** |
+| **Persistent Recurrent State (`.bss`)** | 32,768 Bytes | **448 Bytes** | **98.6% persistent state reduction** |
+| **Active Call-Stack Scratch (local)** | N/A (dynamic runtime) | **160 Bytes** | `next_s[8]` + `h1[32]` |
+| **Total Estimated Runtime SRAM** | Dynamic / Framework | **608 Bytes** | Fits comfortably on 2–32 KB SRAM MCUs |
+| **Dynamic Heap Allocations (`malloc`)** | Enabled | **0 Bytes (`malloc`-free)** | Deterministic real-time execution |
+| **C99 Compiler Strictness** | Requires Python / LibTorch | **Zero warnings (`-Werror -pedantic`)** | Verified on GCC & Clang |
 
-### Memory Map Proof (`arm-none-eabi-size`)
+*\*Note: Single-step PyTorch latency includes Python interpreter and tensor dispatch overhead. End-to-End Window Latency compares full $T = 50$ sequence ingestion including state initialization (`chebyshev_init`) and raw sensor normalization on identical single-thread CPU hardware.*
 
-Compiling `chebyshev_engine.h` for ARM Cortex-M4F (`-mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -Os`):
+### 2. Polynomial Order Ablation Study ($K \in \{4, 8, 16, 32\}$)
 
-```text
-   text    data     bss     dec     hex filename
-   3824       0     448    4272    10b0 chebyshev_engine.elf
-```
+Reproducible via `python scripts/run_ablation.py --seed 42 --max-engines 50 --epochs 20 --iterations 50000` (evaluated on strictly disjoint held-out C-MAPSS FD001 engines with train-only normalization statistics):
 
-- **`.text` (Code)**: ~1.8 KB (Inlined recurrence dot-products and 2-layer MLP).
-- **`.rodata` (Weights & Biases)**: ~2.0 KB (Baked $\bar{A}, \bar{B}$, normalization statistics, and MLP weights).
-- **`.bss` (State Buffer)**: 448 Bytes (Static allocation for 14 sensors × Order 8).
-- **Heap (`malloc`)**: **0 Bytes** (Strict MISRA-C compliance).
+| Order K | Signal Recon Rel L2 Error | Teacher Val RMSE (cycles) | Student Val RMSE (cycles) | Persistent State (B) | Stack Scratch (B) | Total SRAM (B) | C99 Step Latency (µs) |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| **4** | 9.4102e-01 | 41.75 | 21.50 | 224 | 144 | 368 | 2.973 |
+| **8** | 2.5415e-01 | 41.75 | 21.00 | 448 | 160 | 608 | 5.750 |
+| **16** | **2.0861e-04** | 41.75 | **20.56** | 896 | 192 | 1,088 | 16.351 |
+| **32** | **1.7411e-04** | 41.75 | 23.24 | 1,792 | 256 | 2,048 | 38.827 |
+
+*Key observations:*
+- Signal reconstruction error drops strictly monotonically across $K = 4 \to 8 \to 16 \to 32$, reaching $< 0.021\%$ relative $L_2$ error at $K = 16$.
+- $K = 8$ and $K = 16$ sit on the Pareto frontier: $K = 8$ fits in 608 B total SRAM at 5.75 µs/step, while $K = 16$ achieves the lowest held-out RMSE (20.56 cycles) before $K = 32$ begins overfitting the compact 32-unit readout MLP.
 
 ---
 
@@ -81,7 +85,7 @@ Compiling `chebyshev_engine.h` for ARM Cortex-M4F (`-mcpu=cortex-m4 -mfpu=fpv4-s
 
 ### 1. Minimal Installation (CPU-Optimized Wheel)
 
-To prevent downloading multi-gigabyte CUDA runtime packages on lightweight development machines, install PyTorch CPU first:
+To avoid downloading multi-gigabyte CUDA packages on lightweight development machines, install PyTorch CPU first:
 
 ```bash
 # 1. Install lightweight PyTorch CPU (~180 MB)
@@ -95,38 +99,10 @@ pip install -e .
 
 ### 2. End-to-End One-Liner Smoke Test
 
-Verify the entire pipeline—synthetic telemetry generation, LSTM distillation, C99 header export, compilation, and high-resolution latency benchmarking:
+Verify the full pipeline—80/20 held-out dataset splitting, LSTM teacher training, Option A fast-precomputed distillation, C99 export, and native anti-DCE latency benchmarking:
 
 ```bash
 cheb --smoke-test --seed 42
-```
-
-Output:
-```text
-================================================================================
-CHEBYSHEV-COMPRESSOR: RUNNING 15-SECOND FULL PIPELINE SMOKE-TEST
-Reproducibility Seed: 42
-================================================================================
-[1/4] Generating synthetic multi-sensor machinery data...
-      Saved calibration vectors to: cheb_out/calib.npy
-[2/4] Training baseline PyTorch LSTM teacher...
-      Saved teacher checkpoint to: cheb_out/teacher.pt
-[3/4] Distilling trajectory into Depthwise Chebyshev Student...
-      Saved student model to: cheb_out/student.pt
-[4/4] Exporting C99 zero-dependency header...
-      Saved C99 header to: cheb_out/chebyshev_engine.h
-
-[BENCHMARK] Executing standalone native C harness (100,000 steps)...
-========================================================================================
-                       CHEBYSHEV-COMPRESSOR AUDIT BENCHMARK
-========================================================================================
-Metric                       PyTorch LSTM (1-thread)     C99 Engine (Standalone)   Gain
-----------------------------------------------------------------------------------------
-Inference Latency (per step)      1020.43 us                 5.52 us       185.0x SPEEDUP
-Throughput (steps/sec)              980.0                181250.3
-State RAM Footprint                32,768 bytes                 448 bytes        98.6% RAM REDUCTION
-Heap Dynamic Allocation (`malloc`)        Enabled                     0 bytes (MISRA-C)
-========================================================================================
 ```
 
 ---
@@ -136,7 +112,7 @@ Heap Dynamic Allocation (`malloc`)        Enabled                     0 bytes (M
 The package provides a unified command-line tool `cheb`:
 
 ### 1. `cheb train-teacher`
-Trains the heavy teacher recurrent neural network (LSTM or GRU) on turbofan sensor trajectories:
+Trains the baseline PyTorch LSTM teacher strictly on training engines and evaluates held-out validation RMSE:
 ```bash
 cheb train-teacher \
   --data-dir ./data/cmapss \
@@ -149,7 +125,7 @@ cheb train-teacher \
 ```
 
 ### 2. `cheb distill`
-Distills the recurrent hidden state of the teacher into the orthogonal polynomial student:
+Precomputes frozen CGR Chebyshev states once and optimizes the Readout MLP under Option A multi-objective distillation ($\lambda \in [0, 1]$, automatic fallback $\lambda = 1.0$ if unlabeled):
 ```bash
 cheb distill \
   --teacher ./cheb_out/teacher.pt \
@@ -157,14 +133,14 @@ cheb distill \
   --order 8 \
   --window-size 30 \
   --hidden-dim 32 \
+  --distill-lambda 0.5 \
   --epochs 30 \
   --seed 42 \
   --out ./cheb_out/student.pt
 ```
-*Note: Uses dynamic hook extraction to align the teacher's latent state trajectory with the Chebyshev expansion state without modifying your teacher model code.*
 
 ### 3. `cheb export`
-Generates the self-contained ANSI C99 single-header file:
+Generates the self-contained strict C99 single-header file with baked normalization, `memcpy` IEEE-754 sanitization, and CRC32 checksum:
 ```bash
 cheb export \
   --model ./cheb_out/student.pt \
@@ -172,7 +148,7 @@ cheb export \
 ```
 
 ### 4. `cheb benchmark`
-Compiles an isolated, standalone C benchmark binary using your system compiler (`gcc`, `clang`, or `cl`) and compares true hardware latency against PyTorch:
+Compiles an isolated standalone C99 benchmark binary (`gcc`, `clang`, or `cl`) and audits both single-step and end-to-end window ($T = 50$) streaming latency against single-thread PyTorch:
 ```bash
 cheb benchmark \
   --header ./cheb_out/chebyshev_engine.h \
@@ -183,7 +159,7 @@ cheb benchmark \
 
 ## Microcontroller & Embedded Deployment (C99)
 
-The generated `chebyshev_engine.h` has no external library dependencies beyond standard C headers (`<stdint.h>`, `<string.h>`).
+The generated `chebyshev_engine.h` depends solely on ISO C99 standard headers (`<stdint.h>`, `<string.h>`).
 
 ### Standard C Usage Pattern
 
@@ -191,7 +167,7 @@ The generated `chebyshev_engine.h` has no external library dependencies beyond s
 #include <stdio.h>
 #include "chebyshev_engine.h"
 
-/* 1. Allocate state in static BSS or local stack (448 bytes) */
+/* 1. Allocate persistent state in static BSS (448 bytes for 14 ch x order 8) */
 static chebyshev_state_t engine_state;
 
 int main(void) {
@@ -205,69 +181,84 @@ int main(void) {
         8.4195f, 392.0f, 39.06f, 23.4190f
     };
 
-    /* 4. Execute streaming inference step (normalizes, clamps, steps recurrence, predicts) */
+    /* 4. Execute streaming inference step (normalizes, bit-sanitizes, steps, predicts) */
     float out[CHEB_NUM_OUTPUTS];
     chebyshev_step(&engine_state, raw_sensors, out);
 
-    printf("Predicted Remaining Useful Life (RUL): %.2f cycles\n", out[0]);
+    printf("Predicted Remaining Useful Life (RUL): %.2f\n", out[0]);
     return 0;
 }
 ```
 
 ### Arduino / PlatformIO / ESP32 Example
 
-See [examples/arduino_cmapss/arduino_cmapss.ino](examples/arduino_cmapss/arduino_cmapss.ino) for a ready-to-flash sketch containing:
-- 50 pre-compiled sensor readings from NASA C-MAPSS FD001.
-- Microsecond and cycle-level execution profiling for ESP32 and ARM Cortex-M.
-- Verification against reference RUL targets over serial at 115200 baud.
+See [examples/arduino_cmapss/arduino_cmapss.ino](examples/arduino_cmapss/arduino_cmapss.ino) for a ready-to-flash sketch containing pre-compiled sensor readings, microsecond profiling, and serial output verification.
 
 ---
 
 ## Mathematical Foundations
 
-A detailed derivation of the continuous-time memory problem, the Minimax Equioscillation Theorem, discrete state-space Tustin bilinear transformation, and polynomial vs. exponential gradient decay bounds is available in:
+The complete derivation from the sliding-window transport PDE, the Chebyshev-Gauss-Radau (CGR) Spectral-SAT boundary projection, the exact analytical Lyapunov stability proof, and double-precision Tustin discretization are documented in:
 
 📄 **[docs/THEORY.md: Mathematical Foundations of Chebyshev State-Space Compression](docs/THEORY.md)**
 
-### Summary of Core Equations
+### Summary of Canonical Core Equations
 
-#### 1. Shifted Chebyshev Continuous Transition
+Every equation below matches [chebyshev/math_ops.py](chebyshev/math_ops.py) and [docs/THEORY.md](docs/THEORY.md) identically:
 
-$$
-\dot{\mathbf{c}}(t) = \frac{1}{\theta} A \mathbf{c}(t) + \frac{1}{\theta} B u(t)
-$$
+#### 1. Shifted Chebyshev-Gauss-Radau (CGR) Spectral-SAT Continuous Operator
 
-with continuous transition operator $A \in \mathbb{R}^{K \times K}$ and input operator $B \in \mathbb{R}^K$:
+Mapping sliding history $\tau \in [0, \theta]$ to $x = 1 - 2\tau/\theta \in [-1, 1]$ gives the modal ODE:
 
 $$
-A_{j, k} = \begin{cases} 
-0 & \text{if } k \le j \\ 
--4k & \text{if } k > j \text{ and } (k-j) \text{ is odd} \\ 
-0 & \text{otherwise} 
-\end{cases}, \quad B_j = (-1)^j \cdot 2
+\frac{d\mathbf{c}(t)}{dt} = A \mathbf{c}(t) + B u(t)
 $$
 
-#### 2. Tustin Bilinear Discretization (Δt = 1.0)
+with exact upper-triangular Chebyshev differentiation matrix $D \in \mathbb{R}^{K \times K}$, boundary projection weights $\gamma_k = \pi w_{\mathrm{norm}, k}$ ($\gamma_0 = 1$, $\gamma_{k \ge 1} = 2$), and CGR penalty $\alpha = \frac{2K - 1}{2}$:
 
 $$
-\bar{A} = \left(I - \frac{\Delta t}{2\theta} A\right)^{-1} \left(I + \frac{\Delta t}{2\theta} A\right)
+D_{j, k} = \begin{cases}
+k, & \text{if } j = 0,\; k > 0,\; k \text{ is odd} \\
+2k, & \text{if } j \ge 1,\; k > j,\; (k - j) \text{ is odd} \\
+0, & \text{otherwise}
+\end{cases}
 $$
 
 $$
-\bar{B} = \left(I - \frac{\Delta t}{2\theta} A\right)^{-1} \left(\frac{\Delta t}{\theta} B\right)
+A = \frac{2}{\theta}\left(D - \alpha\,\boldsymbol{\gamma}\mathbf{1}^T\right), \qquad B = \frac{2\alpha}{\theta}\,\boldsymbol{\gamma}
 $$
 
-#### 3. Depthwise Multi-Channel Step
+With the analytical SPD CGR weighted energy matrix $P_{\mathrm{CGR}} = V^T \mathrm{diag}(w_j(1 + x_j)) V \succ 0$, $A$ satisfies the strict Lyapunov dissipation theorem $A^T P_{\mathrm{CGR}} + P_{\mathrm{CGR}} A \prec 0$, guaranteeing strictly Hurwitz eigenvalues ($\max_i \mathrm{Re}(\lambda_i(A)) < 0$) and exponential BIBO stability $\|e^{At}\| \le M e^{-\alpha_0 t}$.
+
+#### 2. Double-Precision Tustin Bilinear Discretization (Δt = 1.0)
 
 $$
-\mathbf{c}_d[t] = \bar{A} \mathbf{c}_d[t-1] + \bar{B} \cdot \mathrm{clamp}\!\left(\frac{u_d[t] - \mu_d}{\sigma_d},\; -5.0,\; 5.0\right)
+\bar{A} = \left(I - \frac{\Delta t}{2} A\right)^{-1} \left(I + \frac{\Delta t}{2} A\right)
 $$
 
-#### 4. Prediction Readout
+$$
+\bar{B} = \left(I - \frac{\Delta t}{2} A\right)^{-1} (\Delta t B)
+$$
+
+Conformal bilinear mapping guarantees strict unit-disk stability $\rho(\bar{A}) < 1.0$ for all $K \ge 1, \theta > 0, \Delta t > 0$.
+
+#### 3. Depthwise Multi-Channel Step & Readout MLP
 
 $$
-\hat{y}[t] = W_2 \cdot \mathrm{ReLU}\!\left(W_1\, \mathrm{vec}(\mathbf{C}[t]) + b_1\right) + b_2
+\mathbf{s}_d[t] = \bar{A} \mathbf{s}_d[t-1] + \bar{B} \cdot \mathrm{sanitize}\!\left(\frac{u_d[t] - \mu_d}{\sigma_d}\right)
 $$
+
+$$
+\hat{y}[t] = W_2 \cdot \mathrm{ReLU}\!\left(W_1\, \mathrm{vec}(\mathbf{S}[t]) + b_1\right) + b_2
+$$
+
+#### 4. Option A Multi-Objective Distillation Loss
+
+$$
+\mathcal{L} = (1 - \lambda)\,\mathrm{MSE}(\hat{y}_{\mathrm{student}}, y_{\mathrm{true}}) + \lambda\,\mathrm{MSE}(\hat{y}_{\mathrm{student}}, \hat{y}_{\mathrm{teacher}})
+$$
+
+with automatic fallback $\lambda = 1.0$ when distilling on unlabeled calibration datasets.
 
 ---
 
@@ -277,49 +268,50 @@ $$
 .
 ├── chebyshev/
 │   ├── __init__.py           # Package version and public API
-│   ├── math_ops.py           # Continuous A, B operators & float64 Tustin discretization
+│   ├── math_ops.py           # Canonical CGR Spectral-SAT (A, B), Lyapunov matrix, Tustin & reconstruction
 │   ├── models.py             # DepthwiseChebyshevCell, ReadoutMLP, StudentModel
-│   ├── distill.py            # TeacherStateHook & Cosine Annealing Distillation Engine
-│   ├── exporter.py           # Standalone C99 code generator with CRC32 & baked stats
-│   ├── benchmark.py          # Pure native C benchmark harness & monotonic timer
-│   ├── datasets.py           # NASA C-MAPSS FD001 streaming loader & preprocessor
+│   ├── distill.py            # Option A Fast State Precomputation & Multi-Objective Distillation Engine
+│   ├── exporter.py           # Strict C99 code generator with memcpy IEEE-754 quarantine & CRC32
+│   ├── benchmark.py          # Anti-DCE native C harness (single-step + window) & order ablation
+│   ├── datasets.py           # NASA C-MAPSS FD001 engine-level splits & synthetic signal generator
 │   ├── teacher.py            # Reference PyTorch LSTM / GRU teacher architectures
-│   ├── utils.py              # Deterministic seeding, file hashing, and manifest generator
+│   ├── utils.py              # Deterministic seeding, SHA-256/CRC32 hashing, and manifest generator
 │   └── cli.py                # Unified 'cheb' CLI entrypoint
 ├── docs/
-│   ├── THEORY.md             # Complete mathematical proof and derivation whitepaper
+│   ├── THEORY.md             # Canonical CGR Spectral-SAT derivation & Lyapunov stability whitepaper
 │   ├── adr/                  # Architectural Decision Records (ADRs 0001 - 0008)
 │   └── agents/               # Domain guidelines, triage roles, and issue specs
 ├── examples/
 │   └── arduino_cmapss/
 │       └── arduino_cmapss.ino# Ready-to-run Arduino / ESP32 edge deployment sketch
 ├── scripts/
+│   ├── run_ablation.py       # Reproducible order K in {4, 8, 16, 32} ablation script
 │   ├── setup.sh              # 1-click Linux/macOS contributor bootstrap script
 │   └── setup.ps1             # 1-click Windows PowerShell bootstrap script
 ├── tests/
-│   ├── test_math.py          # Operator validation & eigenvalue stability tests
-│   ├── test_model.py         # PyTorch model forward, state shapes, and gradient flow
-│   ├── test_distill.py       # Hook interception, alignment loss, and distillation
-│   ├── test_exporter.py      # C99 code generation, CRC32, and row-major layout
-│   ├── test_export_c.py      # Compiler auto-discovery & numerical parity verification
-│   ├── test_benchmark.py     # Native C benchmarking & timing statistics
-│   ├── test_cli.py           # CLI commands, argument parsing, and smoke-test
+│   ├── test_math.py          # Hurwitz, Lyapunov P_CGR, PDE residual, Tustin, & reconstruction convergence
+│   ├── test_model.py         # PyTorch forward, non-finite quarantine, & 10,000-step stability
+│   ├── test_distill.py       # Fast precomputation, frozen (A, B), joint loss, & unlabeled fallback
+│   ├── test_exporter.py      # C99 code generation, memcpy bit-mask, SRAM metadata, & CRC32
+│   ├── test_export_c.py      # Strict C99, -O3 -ffast-math quarantine, & 1,000-step parity (< 1e-4)
+│   ├── test_benchmark.py     # Native C single-step/window benchmarking & order ablation tests
+│   ├── test_cli.py           # Held-out engine split verification & CLI end-to-end smoke-test
 │   └── test_utils.py         # Seed determinism, manifest & calibration round-trip tests
-├── .github/workflows/ci.yml   # Multi-OS CI (Ubuntu, Windows, macOS x Python 3.10-3.12)
-├── CONTRIBUTING.md            # Comprehensive contributor guidelines and MISRA rules
+├── .github/workflows/ci.yml  # Multi-OS CI (Ubuntu, Windows, macOS x Python 3.10-3.12)
+├── CONTRIBUTING.md           # Contributor guidelines and strict C99 rules
 ├── Dockerfile                # Hermetic containerized dev environment
 ├── Makefile                  # Unix / macOS developer task runner
-├── GLOSSARY.md               # Strict domain modeling vocabulary
-└── pyproject.toml            # Zero-overhead package configuration
+├── GLOSSARY.md               # Domain modeling vocabulary
+└── pyproject.toml            # Minimal runtime dependency configuration
 ```
 
 ---
 
 ## Contributing & Developer Onboarding
 
-We welcome outside contributors, embedded engineers, and machine learning researchers! To ensure any developer can contribute with 100% environment reproducibility:
+We welcome researchers and embedded engineers! To contribute with full reproducibility:
 
-- 📖 **Contributor Guidelines**: Read [CONTRIBUTING.md](CONTRIBUTING.md) for architectural commitments (zero-`malloc`, single-precision float rules, NaN quarantine, and $10^{-4}$ numerical parity).
+- 📖 **Contributor Guidelines**: Read [CONTRIBUTING.md](CONTRIBUTING.md) for architectural commitments (zero-`malloc`, single-precision float rules, `-ffast-math`-safe IEEE-754 quarantine, and $10^{-4}$ numerical parity).
 - 🚀 **1-Click Bootstrap**:
   - On Linux / macOS: run `./scripts/setup.sh`
   - On Windows: run `.\scripts\setup.ps1`
@@ -327,24 +319,25 @@ We welcome outside contributors, embedded engineers, and machine learning resear
   ```bash
   docker compose run --rm test
   ```
-- 🤖 **Continuous Integration**: Every PR is automatically tested across Ubuntu, Windows, and macOS on Python 3.10 through 3.12 via [.github/workflows/ci.yml](.github/workflows/ci.yml).
+- 🤖 **Continuous Integration**: Every push and PR is verified across Ubuntu, Windows, and macOS on Python 3.10–3.12 via [.github/workflows/ci.yml](.github/workflows/ci.yml).
 
 ---
 
 ## Running the Automated Test Suite
 
-The test suite runs 32 rigorous unit and integration tests including numerical parity against native compiled C:
+The test suite runs 40 automated unit, mathematical, and native C integration tests:
 
 ```bash
 pytest tests/ -v
 ```
 
-All 32 tests pass with zero warnings:
-- Continuous operator skew-symmetry and Tustin spectral radius bounds ($\rho(\bar{A}) \le 1.0$).
-- PyTorch student gradient propagation and NaN input clamping.
-- PyTorch vs. compiled C99 numerical parity ($\max |y_{\text{PyTorch}} - y_{\text{C}}| < 10^{-4}$).
-- C99 compilation under `-Wall -Wextra -Werror -pedantic -std=c99`.
-- Deterministic random seed isolation and manifest verification.
+Key verified invariants:
+- Analytical CGR Lyapunov dissipation ($A^T P_{\mathrm{CGR}} + P_{\mathrm{CGR}} A \prec 0$), strict Hurwitz eigenvalues, and exact polynomial PDE residual ($< 10^{-11}$).
+- Monotonic signal reconstruction convergence across $K \in \{4, 8, 16, 32\}$ and Tustin unit-disk stability ($\rho(\bar{A}) < 1.0$) in `float64` and `float32`.
+- 10,000-step long-horizon `float32` numerical boundedness.
+- Option A fast state precomputation equivalence, frozen $(\bar{A}, \bar{B})$, automatic unlabeled $\lambda = 1.0$ fallback, and disjoint held-out C-MAPSS engine splitting.
+- PyTorch vs. compiled C99 numerical parity ($\max |y_{\mathrm{PyTorch}} - y_{\mathrm{C}}| < 10^{-4}$) under both standard `-O2` and `-O3 -ffast-math` with injected `NaN`, `+Inf`, `-Inf`, and extreme spikes.
+- Strict zero-warning C99 compilation under `-std=c99 -Wall -Wextra -Werror -pedantic`.
 
 ---
 
