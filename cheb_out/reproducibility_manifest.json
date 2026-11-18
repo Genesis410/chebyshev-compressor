@@ -1,7 +1,7 @@
 {
   "project": "chebyshev-compressor",
   "version": "0.1.0",
-  "timestamp_utc": "2026-11-18T11:54:18.421616+00:00",
+  "timestamp_utc": "2026-11-18T12:09:07.144026+00:00",
   "seed": 42,
   "environment": {
     "os": "Windows-11-10.0.26200-SP0",
@@ -23,9 +23,9 @@
     "distillation_mode": "option_a_fixed_analytical_precomputed"
   },
   "benchmark_metrics": {
-    "c_latency_us": 5.9471,
-    "pt_latency_us": 848.9680999773555,
-    "speedup_x": 142.7532915164291,
+    "c_latency_us": 5.8322,
+    "pt_latency_us": 816.4265000377782,
+    "speedup_x": 139.9860258629296,
     "ram_bytes": 448,
     "ram_reduction_pct": 98.6328125,
     "teacher_val_rmse": 0.24928570568439548,
@@ -36,31 +36,31 @@
       "size_bytes": 62085,
       "sha256": "a20037ed61d9bb056d260f058c31d3ae74669a9b9210d84df31d3785ec2f64cd",
       "crc32": "0x2B664ED5U",
-      "modified_iso": "2026-11-18T11:54:11.697765+00:00"
+      "modified_iso": "2026-11-18T12:09:00.303342+00:00"
     },
     "student.pt": {
       "size_bytes": 18189,
       "sha256": "7b04da8e2c2bedcfababb51132b457cae7d5a15bd5d1945c9ba1b35d25d06775",
       "crc32": "0xFB16368FU",
-      "modified_iso": "2026-11-18T11:54:11.943606+00:00"
+      "modified_iso": "2026-11-18T12:09:00.514116+00:00"
     },
     "calib.npy": {
       "size_bytes": 240,
       "sha256": "76c6a960cce70d8595679a3a3dde5333be388cf4a449979d1bc2be86c159494e",
       "crc32": "0xAA7A94E8U",
-      "modified_iso": "2026-11-18T11:54:05.002210+00:00"
+      "modified_iso": "2026-11-18T12:08:53.645492+00:00"
     },
     "chebyshev_engine.h": {
-      "size_bytes": 63985,
-      "sha256": "c41842550ee5ce9cb05567c15f70877b7328f47664e4c39dea453af8a49a1b97",
-      "crc32": "0xB85CDA27U",
-      "modified_iso": "2026-11-18T11:54:11.952119+00:00"
+      "size_bytes": 64663,
+      "sha256": "88ecf434443e160e8ffa46eeffbf351a5920a34e78a16b036d635f28db66a3da",
+      "crc32": "0x78CDC36AU",
+      "modified_iso": "2026-11-18T12:09:00.524621+00:00"
     },
     "benchmark_results.json": {
       "size_bytes": 946,
-      "sha256": "0e08791e4fb7dacd1437bc60e437ebeeef1aef47e9b48a99e28815d57c3d0f1c",
-      "crc32": "0x022C76A6U",
-      "modified_iso": "2026-11-18T11:54:18.296854+00:00"
+      "sha256": "6020b04cf57748d24190982f4f01053228850bb0689cab3d3de8cb966544c8f7",
+      "crc32": "0xC61060F8U",
+      "modified_iso": "2026-11-18T12:09:06.807747+00:00"
     }
   },
   "metadata": {}

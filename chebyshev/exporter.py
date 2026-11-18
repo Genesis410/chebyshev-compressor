@@ -170,20 +170,34 @@ static const float CHEB_B2[CHEB_NUM_OUTPUTS] = {{
 }};
 
 /*
+ * Strict-aliasing-safe IEEE-754 exponent bit-mask check on raw memory.
+ * Reads directly as uint32_t before any floating-point arithmetic so LLVM/GCC
+ * -ffast-math (-ffinite-math-only) cannot attach nnan/ninf assumptions or
+ * elide non-finite detection.
+ */
+static inline int chebyshev_is_nonfinite_ptr(const float *ptr) {{
+    uint32_t bits;
+    memcpy(&bits, ptr, sizeof(bits));
+    return (bits & 0x7F800000U) == 0x7F800000U;
+}}
+
+/*
  * IEEE-754 bit-level non-finite quarantine and input sanity clamp.
- * Uses strict-aliasing-safe memcpy into uint32_t to inspect the 8-bit exponent
- * (0x7F800000U), guaranteeing NaN and +/-Inf are caught deterministically even
- * when compiled with -ffast-math (-ffinite-math-only) or /fp:fast.
+ * Uses a volatile barrier + strict-aliasing-safe memcpy into uint32_t to inspect
+ * the 8-bit exponent (0x7F800000U), guaranteeing NaN and +/-Inf are caught
+ * deterministically even under GCC/Clang -ffast-math (-ffinite-math-only).
  */
 static inline float chebyshev_sanitize(float x) {{
+    volatile float vx = x;
+    float x_copy = vx;
     uint32_t bits;
-    memcpy(&bits, &x, sizeof(bits));
+    memcpy(&bits, &x_copy, sizeof(bits));
     if ((bits & 0x7F800000U) == 0x7F800000U) {{
         return 0.0f; /* Catches NaN and +/-Inf deterministically under -ffast-math */
     }}
-    if (x > CHEB_INPUT_CLAMP) return CHEB_INPUT_CLAMP;
-    if (x < -CHEB_INPUT_CLAMP) return -CHEB_INPUT_CLAMP;
-    return x;
+    if (x_copy > CHEB_INPUT_CLAMP) return CHEB_INPUT_CLAMP;
+    if (x_copy < -CHEB_INPUT_CLAMP) return -CHEB_INPUT_CLAMP;
+    return x_copy;
 }}
 
 /*
@@ -223,8 +237,13 @@ static inline void chebyshev_step(
     float next_s[CHEB_ORDER];
 
     for (int d = 0; d < CHEB_NUM_CHANNELS; d++) {{
-        float x_norm = (raw_inputs[d] - CHEB_MEAN[d]) * CHEB_INV_STD[d];
-        float x_sanitized = chebyshev_sanitize(x_norm);
+        float x_sanitized;
+        if (chebyshev_is_nonfinite_ptr(&raw_inputs[d])) {{
+            x_sanitized = 0.0f;
+        }} else {{
+            float x_norm = (raw_inputs[d] - CHEB_MEAN[d]) * CHEB_INV_STD[d];
+            x_sanitized = chebyshev_sanitize(x_norm);
+        }}
 
         for (int i = 0; i < CHEB_ORDER; i++) {{
             float acc = 0.0f;

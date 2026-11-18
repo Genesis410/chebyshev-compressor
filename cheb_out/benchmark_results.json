@@ -1,14 +1,14 @@
 {
   "c_metrics": {
     "iterations": 100000,
-    "total_time_sec": 0.594715,
-    "latency_us": 5.9471,
-    "latency_ns": 5947.15,
-    "throughput_steps_sec": 168147.8,
+    "total_time_sec": 0.583218,
+    "latency_us": 5.8322,
+    "latency_ns": 5832.18,
+    "throughput_steps_sec": 171462.5,
     "window_seq_len": 50,
     "window_iters": 2000,
-    "window_latency_us": 260.0172,
-    "window_amortized_step_us": 5.2003,
+    "window_latency_us": 265.7925,
+    "window_amortized_step_us": 5.3158,
     "ram_bytes": 448,
     "persistent_state_bytes": 448,
     "stack_scratch_bytes": 160,
@@ -17,15 +17,15 @@
   },
   "pt_metrics": {
     "steps": 1000,
-    "total_time_sec": 0.8489680999773555,
-    "latency_us": 848.9680999773555,
-    "throughput_steps_sec": 1177.900559545963,
+    "total_time_sec": 0.8164265000377782,
+    "latency_us": 816.4265000377782,
+    "throughput_steps_sec": 1224.8500017499769,
     "window_seq_len": 50,
     "window_runs": 200,
-    "window_latency_us": 1489.4009998533875,
-    "window_amortized_step_us": 29.78801999706775
+    "window_latency_us": 1001.784999971278,
+    "window_amortized_step_us": 20.03569999942556
   },
-  "speedup_x": 142.7532915164291,
+  "speedup_x": 139.9860258629296,
   "ram_reduction_pct": 98.6328125,
   "teacher_val_rmse": 0.24928570568439548,
   "student_val_rmse": 0.14658320589757604

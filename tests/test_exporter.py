@@ -65,7 +65,8 @@ def test_export_c_header_structure_and_constants(tmp_path: Path):
     assert "static inline void chebyshev_reset" in content
     assert "static inline void chebyshev_step" in content
     assert "static inline float chebyshev_sanitize" in content
-    assert "memcpy(&bits, &x, sizeof(bits));" in content
+    assert "static inline int chebyshev_is_nonfinite_ptr" in content
+    assert "memcpy(&bits," in content
     assert "0x7F800000U" in content
 
     # Check anti in-place overwrite buffer
