@@ -75,9 +75,18 @@ def test_export_c_header_structure_and_constants(tmp_path: Path):
     # Check accurate memory footprint breakdown and absence of uncertified MISRA-C claims
     assert "Persistent Recurrent State RAM" in content
     assert "Active Call-Stack Scratch" in content
-    assert "Total Estimated Runtime SRAM" in content
+    assert "Estimated Active Runtime SRAM Footprint" in content
     assert "Estimated Flash/ROM footprint" in content
     assert "MISRA-C" not in content
+
+
+def test_export_custom_clamp_value(tmp_path: Path):
+    model = StudentModel(num_channels=3, order=4, hidden_dim=8, clamp_value=3.25)
+    output_file = tmp_path / "chebyshev_engine_clamp.h"
+    content = export_to_c_header(model, output_file)
+    assert re.search(r"#define CHEB_INPUT_CLAMP\s+3\.25f", content) is not None
+    assert re.search(r"#define CHEB_ESTIMATED_ACTIVE_SRAM_BYTES\s+\d+", content) is not None
+    assert re.search(r"#define CHEB_TOTAL_SRAM_BYTES\s+\d+", content) is not None
 
 
 def test_float_literal_syntax(tmp_path: Path):

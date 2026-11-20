@@ -1,7 +1,7 @@
 /*
  * Chebyshev-Compressor: Standalone Strict C99 Inference Engine
  * 
- * Auto-generated: 2026-11-20 08:35:36
+ * Auto-generated: 2026-11-20 09:05:13
  * Architecture: Depthwise Chebyshev State Space (CGR Spectral-SAT) + Readout MLP
  * Compliance: Strict C99 zero-warning (-std=c99 -Wall -Wextra -Werror -pedantic)
  * 
@@ -10,7 +10,7 @@
  *   - Estimated Flash/ROM footprint (.rodata): 1,980 bytes (1.93 KB)
  *   - Persistent Recurrent State RAM (.bss/caller): 96 bytes
  *   - Active Call-Stack Scratch (next_s + h1): 96 bytes
- *   - Total Estimated Runtime SRAM: 192 bytes (excluding caller I/O buffers)
+ *   - Estimated Active Runtime SRAM Footprint: 192 bytes (State + Stack Scratch; excluding compiler spills/alignment/caller frames)
  *   - Dynamic Allocation: strictly 0 bytes (no malloc/free)
  *   - Re-entrant: Yes (all state passed via context pointer)
  *   - Checksum: 0xDA48E048U
@@ -26,14 +26,16 @@
 extern "C" {
 #endif
 
-#define CHEB_NUM_CHANNELS           3
-#define CHEB_ORDER                  8
-#define CHEB_HIDDEN_DIM             16
-#define CHEB_NUM_OUTPUTS            1
-#define CHEB_INPUT_CLAMP            5.0f
-#define CHEB_PERSISTENT_STATE_BYTES 96
-#define CHEB_STACK_SCRATCH_BYTES    96
-#define CHEB_MODEL_CHECKSUM         0xDA48E048U
+#define CHEB_NUM_CHANNELS                3
+#define CHEB_ORDER                       8
+#define CHEB_HIDDEN_DIM                  16
+#define CHEB_NUM_OUTPUTS                 1
+#define CHEB_INPUT_CLAMP                 5.0f
+#define CHEB_PERSISTENT_STATE_BYTES      96
+#define CHEB_STACK_SCRATCH_BYTES         96
+#define CHEB_ESTIMATED_ACTIVE_SRAM_BYTES 192
+#define CHEB_TOTAL_SRAM_BYTES            192
+#define CHEB_MODEL_CHECKSUM              0xDA48E048U
 
 /* Re-entrant caller-allocated state structure */
 typedef struct {

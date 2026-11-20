@@ -284,6 +284,7 @@ def cmd_distill(args: argparse.Namespace) -> int:
             "hidden_dim": student.hidden_dim,
             "out_features": student.out_features,
             "window_size": student.cell.window_size,
+            "clamp_value": student.clamp_value,
         },
         str(out_path),
     )
@@ -309,6 +310,7 @@ def cmd_export(args: argparse.Namespace) -> int:
         hidden_dim = checkpoint["hidden_dim"]
         out_features = checkpoint["out_features"]
         window_size = checkpoint.get("window_size", 30.0)
+        clamp_value = checkpoint.get("clamp_value", 5.0)
     else:
         state_dict = checkpoint
         num_channels = state_dict["cell.mean"].shape[0]
@@ -316,6 +318,7 @@ def cmd_export(args: argparse.Namespace) -> int:
         hidden_dim = state_dict["readout.mlp.0.weight"].shape[0]
         out_features = state_dict["readout.mlp.2.weight"].shape[0]
         window_size = 30.0
+        clamp_value = 5.0
 
     student = StudentModel(
         num_channels=num_channels,
@@ -323,6 +326,7 @@ def cmd_export(args: argparse.Namespace) -> int:
         hidden_dim=hidden_dim,
         out_features=out_features,
         window_size=window_size,
+        clamp_value=clamp_value,
     )
     student.load_state_dict(state_dict)
 

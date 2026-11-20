@@ -63,19 +63,19 @@ To maintain maximum technical focus and eliminate cross-timezone scheduling bott
 ## 4. Zero-Retention Data Privacy Guarantee
 
 We adhere to a strict **Zero-Retention Policy** ([ADR-0010](adr/0010-client-data-sanitization-and-zero-retention.md)):
-1. **Local Pre-Sanitization**: Clients run `tools/sanitize_client_data.py` locally before transmission. This utility strips physical units, channel labels, and sensor calibrations, scaling inputs to zero-mean unit-variance float32 arrays. You never share proprietary operational context.
+1. **Local Pre-Sanitization**: Clients run `tools/sanitize_client_data.py` locally before transmission. This utility strips physical units, channel labels, and proprietary sensor calibrations, scaling inputs to zero-mean unit-variance float32 arrays (`.npy`). *Note: Clients should retain their own local domain calibration notes (sampling rate $\Delta t$, target scale / threshold) for end-to-end firmware integration.*
 2. **Permanent 14-Day Deletion**: All client-submitted model weights (`.pt`) and sanitized tensors (`.npy`) are permanently deleted from developer storage within 14 calendar days post-delivery acceptance.
 
 ---
 
 ## 5. How to Order
 
-Commercial transactions are conducted with buyer escrow protection:
+Commercial transactions are conducted with transparent buyer protection:
 
-1. **Option 1: Fiverr Escrow (Recommended for new clients)**
-   - Order via our structured Fiverr gig with built-in escrow, credit card, and PayPal support.
-   - Contact us to receive the direct Gig link: **[support@chebyshev-compressor.dev](mailto:support@chebyshev-compressor.dev)** (or via GitHub Discussions).
-2. **Option 2: Direct Wise Invoice (For GitHub / Open-Source Contributors)**
-   - For direct inquiries from open-source teams, invoices are issued via Wise Business escrow with bank-level transfer fees.
+1. **Option 1: Fiverr Escrow (Recommended for new clients & corporate cards)**
+   - Escrow buyer protection is handled securely through Fiverr custom offers.
+   - Contact us to receive the direct Gig link: **[support@chebyshev-compressor.dev](mailto:support@chebyshev-compressor.dev)** (or via GitHub Discussions / private issue). Once your sanitized input shapes are reviewed, a custom Fiverr offer is issued for the agreed package ($79 or $149). Funds remain held in escrow until you inspect and accept the delivered C99 header and verification report.
+2. **Option 2: Direct Wise International Invoice (For verified GitHub / Open-Source Partners)**
+   - For direct corporate engagements or existing open-source contributors, invoices can be issued via Wise (direct international bank transfer / ACH / SEPA with minimal FX fees). Wise invoices provide direct wire settlement without third-party platform commissions.
 
 To initiate an order, submit your sanitized data shape and target microcontroller via a private inquiry or email.

@@ -141,7 +141,7 @@ def test_student_model_gradient_flow():
 def test_student_model_state_dict_serialization():
     num_channels = 4
     order = 4
-    model1 = StudentModel(num_channels=num_channels, order=order)
+    model1 = StudentModel(num_channels=num_channels, order=order, clamp_value=3.25)
     model1.cell.set_normalization(np.array([1.0, 2.0, 3.0, 4.0]), np.array([0.5, 0.5, 0.5, 0.5]))
     
     state_dict = model1.state_dict()
@@ -149,10 +149,13 @@ def test_student_model_state_dict_serialization():
     assert "cell.B" in state_dict
     assert "cell.mean" in state_dict
     assert "cell.inv_std" in state_dict
+    assert "cell.clamp_val" in state_dict
     assert "readout.mlp.0.weight" in state_dict
+    assert model1.clamp_value == 3.25
     
     model2 = StudentModel(num_channels=num_channels, order=order)
     model2.load_state_dict(state_dict)
+    assert model2.clamp_value == 3.25
     
     x = torch.randn(2, 5, num_channels)
     with torch.no_grad():

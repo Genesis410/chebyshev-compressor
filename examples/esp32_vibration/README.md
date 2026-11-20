@@ -8,8 +8,8 @@ This example demonstrates deploying **Chebyshev-Compressor** to an ESP32 microco
 - **Polynomial Order**: $K = 8$
 - **Persistent Recurrent State RAM**: **96 Bytes** ($3 \times 8 \times 4$ bytes)
 - **Active Call-Stack Scratch**: 96 Bytes (`next_s[8]` + `h1[16]`)
-- **Total Runtime SRAM Footprint**: **192 Bytes** (zero heap `malloc`)
-- **Inference Latency**: ~3.5–5.0 µs per step on 240 MHz ESP32 Xtensa dual-core
+- **Estimated Active SRAM Footprint**: **192 Bytes** (zero heap `malloc`)
+- **Inference Latency**: ~3.5–5.0 µs per step on 240 MHz ESP32 Xtensa dual-core (see [BENCHMARK_LOG.md](BENCHMARK_LOG.md))
 
 ---
 

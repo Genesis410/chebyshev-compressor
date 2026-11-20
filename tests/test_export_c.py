@@ -339,3 +339,58 @@ def test_fastmath_ieee754_nan_inf_quarantine_and_parity(tmp_path: Path):
     max_abs_error = float(np.max(np.abs(pytorch_out - c_out)))
     assert max_abs_error < 1e-4, f"Fast-math C/PyTorch parity mismatch: max_error={max_abs_error:.6e}"
 
+
+def test_custom_clamp_value_parity(tmp_path: Path):
+    """Verifies that non-default clamp_value (e.g. 2.5) is exported to C and preserves exact parity."""
+    compiler = find_c_compiler()
+    if not compiler:
+        pytest.skip("No C compiler found")
+    compiler_path, compiler_type = compiler
+
+    torch.manual_seed(123)
+    num_channels = 4
+    order = 6
+    hidden_dim = 16
+    out_features = 1
+    T = 150
+    custom_clamp = 2.5
+
+    model = StudentModel(
+        num_channels=num_channels,
+        order=order,
+        hidden_dim=hidden_dim,
+        out_features=out_features,
+        clamp_value=custom_clamp,
+    )
+    model.eval()
+
+    header_path = tmp_path / "chebyshev_engine.h"
+    header_content = export_to_c_header(model, header_path)
+    assert "#define CHEB_INPUT_CLAMP                 2.5f" in header_content or "2.5" in header_content
+
+    runner_src = tmp_path / "runner_clamp.c"
+    runner_src.write_text(C_RUNNER_TEMPLATE, encoding="utf-8")
+    output_exe = tmp_path / "runner_clamp.exe"
+    compile_c_runner(compiler_path, compiler_type, tmp_path, runner_src, output_exe)
+
+    # Input data with values exceeding +/- 2.5 to verify clamping parity
+    x = (np.random.randn(T, num_channels).astype(np.float32)) * 6.0
+
+    with torch.no_grad():
+        pytorch_out = model(torch.from_numpy(x).unsqueeze(0), return_sequence=True).squeeze(0).cpu().numpy()
+
+    input_bin = tmp_path / "input_clamp.bin"
+    output_bin = tmp_path / "output_clamp.bin"
+    with open(input_bin, "wb") as f:
+        f.write(np.int32(T).tobytes())
+        f.write(x.tobytes())
+
+    res = subprocess.run([str(output_exe), str(input_bin), str(output_bin)], capture_output=True, text=True)
+    assert res.returncode == 0
+
+    with open(output_bin, "rb") as f:
+        c_out = np.frombuffer(f.read(), dtype=np.float32).reshape(T, out_features)
+
+    max_abs_error = float(np.max(np.abs(pytorch_out - c_out)))
+    assert max_abs_error < 1e-4, f"Custom clamp parity mismatch: max_error={max_abs_error:.6e}"
+

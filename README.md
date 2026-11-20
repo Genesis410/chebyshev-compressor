@@ -38,7 +38,7 @@
 ```
 
 1. **Mathematically Grounded Orthogonal Window Memory (CGR Spectral-SAT)**: Continuous-time sliding-window transport ($\partial_t f_t = -\partial_\tau f_t$) is projected onto shifted Chebyshev polynomials of the first kind ($`T_k^*(\tau)`$) via a Chebyshev-Gauss-Radau Simultaneous Approximation Term (SAT). The resulting finite-dimensional operator satisfies an exact analytical Lyapunov dissipation theorem ($A^T P_{\mathrm{CGR}} + P_{\mathrm{CGR}} A \prec 0$), guaranteeing strictly Hurwitz eigenvalues, unconditional Tustin unit-disk stability ($\rho(\bar{A}) < 1.0$), and near-optimal Minimax uniform approximation across $[0, \theta]$.
-2. **Explicit $O(1)$ SRAM Budget (448 B Persistent + 160 B Stack = 608 B Total)**: For 14 channels at order $K = 8$, the persistent recurrent state buffer occupies exactly $14 \times 8 \times 4 = 448$ bytes (caller-allocated `.bss`), plus 160 bytes of local call-stack scratch (`next_s[8]` + `h1[32]`) for a total runtime SRAM budget of **608 bytes** with **zero heap allocation** (`malloc`-free).
+2. **Explicit $O(1)$ SRAM Budget (448 B Persistent + 160 B Stack = 608 B Estimated Active Footprint)**: For 14 channels at order $K = 8$, the persistent recurrent state buffer occupies exactly $14 \times 8 \times 4 = 448$ bytes (caller-allocated `.bss`), plus 160 bytes of local call-stack scratch (`next_s[8]` + `h1[32]`) for an estimated active runtime SRAM footprint of **608 bytes** (excluding compiler register spills, struct alignment, and caller stack frames) with **zero heap allocation** (`malloc`-free).
 3. **Option A Readout Distillation with Fast State Precomputation**: Because $(\bar{A}, \bar{B})$ are strictly frozen analytical operators, Chebyshev states $S \in \mathbb{R}^{N \times (D_{\mathrm{in}} \cdot K)}$ are precomputed once prior to training. Only the exported Readout MLP is optimized under a joint ground-truth + teacher mimicry objective (automatically falling back to $\lambda = 1.0$ on unlabeled calibration data), preventing pole drift and accelerating CPU training $>10\times$.
 4. **Embedded-Safe IEEE-754 Quarantine (`-ffast-math` Immune)**: Raw physical sensor values are normalized in-place using baked $(\mu, \sigma^{-1})$ vectors and sanitized via strict-aliasing-safe `memcpy` IEEE-754 exponent bit-masking (`(bits & 0x7F800000U) == 0x7F800000U -> 0.0f`), verified directly under `-O3 -ffast-math` (`-ffinite-math-only`) to prevent `NaN`/`±Inf` state poisoning.
 5. **Verified Numerical Parity & Strict C99 Cleanliness**: Automated tests verify $\max |y_{\mathrm{PyTorch}} - y_{\mathrm{C}}| < 10^{-4}$ over 1,000 steps (including spikes, `NaN`, and `±Inf`), 10,000-step `float32` boundedness, monotonic signal reconstruction convergence, and zero-warning compilation under `-std=c99 -Wall -Wextra -Werror -pedantic`.
@@ -58,28 +58,28 @@ All numbers below are directly measured and reproducible from `cheb --smoke-test
 | **Streaming Throughput** | 1,178 steps/sec | **168,148 steps/sec** | **Real-time edge streaming** |
 | **Recurrent State Vector (math)** | 512 Bytes ($2 \times 2 \times 32 \times 4$) | **448 Bytes** ($14 \times 8 \times 4$) | **12.5% state reduction** (linear memory) |
 | **Active Call-Stack Scratch (local)** | Dynamic runtime stack | **160 Bytes** | `next_s[8]` + `h1[32]` |
-| **Total Active SRAM vs TFLM Arena** | 32,768 Bytes (TFLM arena workspace) | **608 Bytes** (448 B state + 160 B stack) | **98.1% active SRAM reduction** (fits in 2 KB MCUs) |
+| **Estimated Runtime Workspace vs TFLM Arena** | 32,768 Bytes (TFLM arena workspace) | **608 Bytes** (448 B state + 160 B stack) | **98.1% memory footprint reduction** (fits in 2 KB MCUs) |
 | **Dynamic Heap Allocations (`malloc`)** | Enabled | **0 Bytes (`malloc`-free)** | Deterministic real-time execution |
 | **C99 Compiler Strictness** | Requires Python / LibTorch | **Zero warnings (`-Werror -pedantic`)** | Verified on GCC & Clang |
 
-\* *Note: Single-step PyTorch latency includes Python interpreter and tensor dispatch overhead. End-to-End Window Latency compares full $`T = 50`$ sequence ingestion including state initialization (`chebyshev_init`) and raw sensor normalization on identical single-thread CPU hardware. Baseline state math: 2 layers x 2 states (h, c) x 32 hidden units x 4 bytes = 512 bytes. TFLM Tensor Arena represents typical ~32 KB workspace required by TensorFlow Lite Micro LSTM op.*
+\* *Note: Single-step PyTorch latency includes Python interpreter and tensor dispatch overhead. End-to-End Window Latency compares full $`T = 50`$ sequence ingestion including state initialization (`chebyshev_init`) and raw sensor normalization on identical single-thread CPU hardware. Baseline mathematical recurrent state: 2 layers x 2 state vectors (h, c) x 32 hidden units x 4 bytes = 512 bytes vs Chebyshev recurrent state $14 \times 8 \times 4 = 448$ bytes. Runtime memory footprint: ~32 KB workspace arena required by TensorFlow Lite Micro LSTM runtime vs 608 bytes estimated active C99 runtime footprint (448 B persistent state + 160 B stack scratch; excluding compiler spills and caller frames).*
 
 ### 2. On-Device Microcontroller Profiles (Measured Hardware Footprint)
 
-| Microcontroller Target | Application Scenario | Model Config | Flash ROM (`.rodata`) | Persistent State (`.bss`) | Stack Scratch | Total Runtime SRAM | Measured Step Latency |
+| Microcontroller Target | Application Scenario | Model Config | Flash ROM (`.rodata`) | Persistent State (`.bss`) | Stack Scratch | Active SRAM Footprint\* | Measured Step Latency |
 | :--- | :--- | :--- | ---: | ---: | ---: | ---: | ---: |
 | **ESP32 Xtensa @ 240 MHz** | 3-Axis Bearing Vibration ([Demo](examples/esp32_vibration/)) | $D_{\mathrm{in}}=3, K=8, H=16$ | **1.98 KB** | **96 Bytes** | 96 Bytes | **192 Bytes** | **3.8 µs** |
 | **ESP32 Xtensa @ 240 MHz** | 14-Channel Turbofan RUL ([Demo](examples/arduino_cmapss/)) | $D_{\mathrm{in}}=14, K=8, H=32$ | **17.82 KB** | **448 Bytes** | 160 Bytes | **608 Bytes** | **5.2 µs** |
 | **STM32F401RE Cortex-M4F @ 84 MHz** | 3-Axis Bearing Vibration | $D_{\mathrm{in}}=3, K=8, H=16$ | **1.98 KB** | **96 Bytes** | 96 Bytes | **192 Bytes** | **11.4 µs** |
 | **STM32F401RE Cortex-M4F @ 84 MHz** | 14-Channel Turbofan RUL | $D_{\mathrm{in}}=14, K=8, H=32$ | **17.82 KB** | **448 Bytes** | 160 Bytes | **608 Bytes** | **15.8 µs** |
 
-*Measurements taken using hardware cycle counters (`micros()` on ESP32, DWT `CYCCNT` on Cortex-M4F with hardware single-precision FPU). Zero dynamic heap allocations (`malloc`-free).*
+\* *Active SRAM Footprint is estimated as Persistent State (`.bss`) + local Call-Stack Scratch (`next_s` + `h1`), excluding compiler register spills and caller stack frames. Measurements taken using hardware cycle counters (`micros()` on ESP32, DWT `CYCCNT` on Cortex-M4F with hardware single-precision FPU). Zero dynamic heap allocations (`malloc`-free). See [examples/esp32_vibration/BENCHMARK_LOG.md](examples/esp32_vibration/BENCHMARK_LOG.md) for firmware memory map and profiling logs.*
 
 ### 3. Polynomial Order Ablation Study ($K \in \{4, 8, 16, 32\}$)
 
 Reproducible via `python scripts/run_ablation.py --seed 42 --max-engines 50 --epochs 20 --iterations 50000` (evaluated on strictly disjoint held-out C-MAPSS FD001 engines with train-only normalization statistics):
 
-| Order K | Signal Recon Rel L2 Error | Teacher Val RMSE (cycles) | Student Val RMSE (cycles) | Persistent State (B) | Stack Scratch (B) | Total SRAM (B) | C99 Step Latency (µs) |
+| Order K | Signal Recon Rel L2 Error | Teacher Val RMSE (cycles) | Student Val RMSE (cycles) | Persistent State (B) | Stack Scratch (B) | Active SRAM (B) | C99 Step Latency (µs) |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | **4** | 9.4102e-01 | 41.75 | 21.50 | 224 | 144 | 368 | 2.973 |
 | **8** | 2.5415e-01 | 41.75 | 21.00 | 448 | 160 | 608 | 5.750 |

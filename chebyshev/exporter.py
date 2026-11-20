@@ -69,6 +69,17 @@ def export_to_c_header(student: StudentModel, output_path: Union[str, Path]) -> 
     hidden_dim = student.hidden_dim
     out_features = student.out_features
 
+    # Dynamic clamp value from model buffer/property (ensuring PyTorch-C parity)
+    clamp_value = 5.0
+    if hasattr(student, "clamp_value"):
+        clamp_value = student.clamp_value
+    elif hasattr(student, "cell") and hasattr(student.cell, "clamp_value"):
+        clamp_value = student.cell.clamp_value
+    if hasattr(clamp_value, "item"):
+        clamp_value = float(clamp_value.item())
+    else:
+        clamp_value = float(clamp_value)
+
     # Calculate memory metrics
     param_count = (
         A.size + B.size + mean.size + inv_std.size + W1.size + B1.size + W2.size + B2.size
@@ -99,7 +110,7 @@ def export_to_c_header(student: StudentModel, output_path: Union[str, Path]) -> 
  *   - Estimated Flash/ROM footprint (.rodata): {flash_bytes:,} bytes ({flash_bytes / 1024:.2f} KB)
  *   - Persistent Recurrent State RAM (.bss/caller): {ram_state_bytes:,} bytes
  *   - Active Call-Stack Scratch (next_s + h1): {stack_scratch_bytes:,} bytes
- *   - Total Estimated Runtime SRAM: {total_sram_bytes:,} bytes (excluding caller I/O buffers)
+ *   - Estimated Active Runtime SRAM Footprint: {total_sram_bytes:,} bytes (State + Stack Scratch; excluding compiler spills/alignment/caller frames)
  *   - Dynamic Allocation: strictly 0 bytes (no malloc/free)
  *   - Re-entrant: Yes (all state passed via context pointer)
  *   - Checksum: {checksum_hex}
@@ -115,14 +126,16 @@ def export_to_c_header(student: StudentModel, output_path: Union[str, Path]) -> 
 extern "C" {{
 #endif
 
-#define CHEB_NUM_CHANNELS           {num_channels}
-#define CHEB_ORDER                  {order}
-#define CHEB_HIDDEN_DIM             {hidden_dim}
-#define CHEB_NUM_OUTPUTS            {out_features}
-#define CHEB_INPUT_CLAMP            5.0f
-#define CHEB_PERSISTENT_STATE_BYTES {ram_state_bytes}
-#define CHEB_STACK_SCRATCH_BYTES    {stack_scratch_bytes}
-#define CHEB_MODEL_CHECKSUM         {checksum_hex}
+#define CHEB_NUM_CHANNELS                {num_channels}
+#define CHEB_ORDER                       {order}
+#define CHEB_HIDDEN_DIM                  {hidden_dim}
+#define CHEB_NUM_OUTPUTS                 {out_features}
+#define CHEB_INPUT_CLAMP                 {format_float(clamp_value)}
+#define CHEB_PERSISTENT_STATE_BYTES      {ram_state_bytes}
+#define CHEB_STACK_SCRATCH_BYTES         {stack_scratch_bytes}
+#define CHEB_ESTIMATED_ACTIVE_SRAM_BYTES {total_sram_bytes}
+#define CHEB_TOTAL_SRAM_BYTES            {total_sram_bytes}
+#define CHEB_MODEL_CHECKSUM              {checksum_hex}
 
 /* Re-entrant caller-allocated state structure */
 typedef struct {{

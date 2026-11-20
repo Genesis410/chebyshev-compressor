@@ -78,6 +78,10 @@ $$
 
 For instance, at order $K = 8$, $\Lambda_8 \approx 1.84$, guaranteeing that the Chebyshev state projection error is at most $2.84 \times$ the theoretical minimax error across the entire historical window $[0, \theta]$—completely avoiding the exponential Runge divergence observed in equispaced polynomial interpolation.
 
+> [!NOTE]
+> **Distinction Between Polynomial Basis Optimality and End-to-End Model Optimality**:
+> Chebyshev polynomial minimax optimality (the Chebyshev equioscillation property) applies strictly to polynomial approximation of scalar functions on $[-1, 1]$. In Chebyshev-Compressor, the truncated state expansion $S_K f$ is a **near-minimax** orthogonal projection whose uniform error factor grows only logarithmically ($\Lambda_K \sim O(\ln K)$). We do **not** claim that the full dynamic recurrent state-space model or the downstream Readout MLP is globally minimax optimal across arbitrary nonlinear dynamical systems; rather, the Chebyshev basis provides the tightest logarithmic bound against Runge divergence for any fixed polynomial order $K$, ensuring numerical conditioning and preventing exponential error amplification.
+
 ### 2.2 Spectral Convergence of Coefficients
 
 For any trajectory $f(\tau) \in C^p([0, \theta])$ whose $p$-th derivative has bounded total variation $V$, the modal coefficients decay spectrally as:

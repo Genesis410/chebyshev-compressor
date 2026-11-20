@@ -31,7 +31,11 @@ class DepthwiseChebyshevCell(nn.Module):
         self.order = order
         self.window_size = window_size
         self.dt = dt
-        self.clamp_value = clamp_value
+
+        # Register clamp_val as persistent PyTorch buffer for checkpoint parity
+        self.register_buffer(
+            "clamp_val", torch.tensor(float(clamp_value), dtype=torch.float32)
+        )
 
         # Analytical discretized operators
         A_np, B_np = get_chebyshev_operators(
@@ -43,6 +47,15 @@ class DepthwiseChebyshevCell(nn.Module):
         # Channel normalization buffers (baked into model)
         self.register_buffer("mean", torch.zeros(num_channels, dtype=torch.float32))
         self.register_buffer("inv_std", torch.ones(num_channels, dtype=torch.float32))
+
+    @property
+    def clamp_value(self) -> float:
+        """Returns input clamp boundary as standard Python float."""
+        return float(self.clamp_val.item())
+
+    @clamp_value.setter
+    def clamp_value(self, val: float) -> None:
+        self.clamp_val.fill_(float(val))
 
     def set_normalization(
         self,
@@ -158,6 +171,15 @@ class StudentModel(nn.Module):
             hidden_dim=hidden_dim,
             out_features=out_features,
         )
+
+    @property
+    def clamp_value(self) -> float:
+        """Returns input clamp boundary of the underlying Chebyshev cell."""
+        return self.cell.clamp_value
+
+    @clamp_value.setter
+    def clamp_value(self, val: float) -> None:
+        self.cell.clamp_value = val
 
     def step(
         self, x_t: torch.Tensor, state: torch.Tensor
