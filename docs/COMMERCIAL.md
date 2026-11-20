@@ -72,10 +72,13 @@ We adhere to a strict **Zero-Retention Policy** ([ADR-0010](adr/0010-client-data
 
 Commercial transactions are conducted with transparent buyer protection:
 
-1. **Option 1: Fiverr Escrow (Recommended for new clients & corporate cards)**
+1. **Option 1: Fiverr Escrow (Recommended for new clients & corporate purchasing)**
    - Escrow buyer protection is handled securely through Fiverr custom offers.
-   - Contact us to receive the direct Gig link: **[support@chebyshev-compressor.dev](mailto:support@chebyshev-compressor.dev)** (or via GitHub Discussions / private issue). Once your sanitized input shapes are reviewed, a custom Fiverr offer is issued for the agreed package ($79 or $149). Funds remain held in escrow until you inspect and accept the delivered C99 header and verification report.
+   - Contact us to receive the direct Custom Gig offer:
+     - Direct Email: **[ihsanakmal151@gmail.com](mailto:ihsanakmal151@gmail.com?subject=%5BCommercial%20Inquiry%5D%20Chebyshev-Compressor%20Service)**
+     - GitHub Issue: [Open a Commercial Inquiry](https://github.com/Genesis410/chebyshev-compressor/issues/new?template=commercial_inquiry.md)
+   - Once your sanitized input shapes are reviewed, a custom Fiverr offer is issued for the agreed package ($79 or $149). Funds remain held in Fiverr escrow until you inspect and accept the delivered C99 header and verification report.
 2. **Option 2: Direct Wise International Invoice (For verified GitHub / Open-Source Partners)**
-   - For direct corporate engagements or existing open-source contributors, invoices can be issued via Wise (direct international bank transfer / ACH / SEPA with minimal FX fees). Wise invoices provide direct wire settlement without third-party platform commissions.
+   - For direct corporate engagements or existing open-source contributors, electronic invoices can be issued via Wise (direct international bank transfer / ACH / SEPA with minimal FX fees). Wise invoices provide direct wire settlement without third-party platform commissions.
 
-To initiate an order, submit your sanitized data shape and target microcontroller via a private inquiry or email.
+To initiate an order, submit your sanitized data shape and target microcontroller via [GitHub Issue Template](https://github.com/Genesis410/chebyshev-compressor/issues/new?template=commercial_inquiry.md) or direct email to **[ihsanakmal151@gmail.com](mailto:ihsanakmal151@gmail.com?subject=%5BCommercial%20Inquiry%5D%20Chebyshev-Compressor%20Service)**.

@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
-    { name = "Genesis410", email = "genesis410@users.noreply.github.com" }
+    { name = "Genesis410", email = "ihsanakmal151@gmail.com" }
 ]
 keywords = ["tinyml", "chebyshev", "state-space", "distillation", "embedded", "edge-ai", "lstm", "c99"]
 dependencies = [

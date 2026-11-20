@@ -363,6 +363,8 @@ Looking for customized model conversion, firmware profiling, or comparative base
 - **Research Package (US$149)**: 4–6 page comparative technical audit report ($K \in \{4, 8, 16, 32\}$ vs baseline) + reproducibility bundle (7–10 calendar days).
 - **Zero-Retention Guarantee**: Client-side data sanitization with permanent 14-day data deletion SLA.
 
+To request a deployment sprint or benchmark package, reach out via [ihsanakmal151@gmail.com](mailto:ihsanakmal151@gmail.com?subject=%5BCommercial%20Inquiry%5D%20Chebyshev-Compressor%20Service) or [open a Commercial Inquiry on GitHub](https://github.com/Genesis410/chebyshev-compressor/issues/new?template=commercial_inquiry.md).
+
 ---
 
 ## License
