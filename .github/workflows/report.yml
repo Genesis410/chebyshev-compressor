@@ -1,0 +1,36 @@
+name: Build Technical Report PDF
+
+on:
+  push:
+    paths:
+      - 'report/**'
+      - '.github/workflows/report.yml'
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build_latex:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Compile LaTeX Technical Report
+        uses: xu-cheng/latex-action@v3
+        with:
+          root_file: main.tex
+          working_directory: report
+          args: -pdf -file-line-error -interaction=nonstopmode
+
+      - name: Upload PDF Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: chebyshev_technical_report
+          path: report/main.pdf
+
+      - name: Attach PDF to Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: report/main.pdf

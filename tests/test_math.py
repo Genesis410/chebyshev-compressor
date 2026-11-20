@@ -54,6 +54,12 @@ def test_analytical_lyapunov_dissipation_certificate():
             f"Lyapunov dissipation failed for K={order}: max_eig={np.max(lyap_eigs)}"
         )
 
+        # Constant state c = [1, 0, ..., 0]^T dissipation check: c^T M c < 0
+        c_const = np.zeros(order, dtype=np.float64)
+        c_const[0] = 1.0
+        val_const = float(c_const @ lyap @ c_const)
+        assert val_const < 0.0, f"Constant state energy must be strictly dissipative: {val_const}"
+
 
 def test_exact_polynomial_transport_pde_residual():
     """Verifies dc/dt = A*c + B*u(t) satisfies transport PDE exactly for polynomials of degree <= K-1."""

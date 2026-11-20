@@ -67,4 +67,11 @@ Desktop.ini
 
 # Temporary scratch and experiment outputs
 *.log
+*.aux
+*.bbl
+*.blg
+*.toc
+*.loa
 data/
+benchmark_results_host.json
+scientific_benchmark_summary.json
