@@ -61,6 +61,64 @@ def test_analytical_lyapunov_dissipation_certificate():
         assert val_const < 0.0, f"Constant state energy must be strictly dissipative: {val_const}"
 
 
+def test_sbp_exact_algebraic_identities_and_schur_complement():
+    """Verifies the exact algebraic identities in Theorem 2:
+    1. Boundary differentiation flux: [D~^T W_E + W_E D~]_{0,0} = 4K(K-1) / (3(2K-1)).
+    2. Boundary diagonal entry of A~^T W_E + W_E A~: -(4/theta) * (10K^2 - 10K + 3) / (3(2K-1)).
+    3. Arrowhead Schur complement: S = a - b^T M_int^{-1} b = -(2/theta)*(3K - 1) < 0.
+    4. Strict negative definiteness: M_int < 0 and M < 0 for all K >= 2.
+    """
+    for order in [2, 3, 4, 8, 16, 32]:
+        theta = 2.5
+        j = np.arange(order)
+        x = np.cos(2 * np.pi * j / (2 * order - 1))
+        w_bar = np.ones(order) * 2.0 / (2 * order - 1)
+        w_bar[0] = 1.0 / (2 * order - 1)
+
+        V = np.zeros((order, order))
+        for col in range(order):
+            V[:, col] = np.cos(col * np.arccos(x))
+
+        D = chebyshev_differentiation_matrix(order)
+        alpha = (2 * order - 1) / 2.0
+        gamma = np.array([1.0] + [2.0] * (order - 1))
+        A = (2.0 / theta) * (D - alpha * np.outer(gamma, np.ones(order)))
+
+        W_E = np.diag(w_bar * (1.0 + x))
+        V_inv = np.linalg.inv(V)
+        D_tilde = V @ D @ V_inv
+        A_tilde = V @ A @ V_inv
+
+        # 1. Boundary differentiation flux identity
+        D_sym = D_tilde.T @ W_E + W_E @ D_tilde
+        expected_flux_00 = 4.0 * order * (order - 1) / (3.0 * (2 * order - 1))
+        assert np.isclose(D_sym[0, 0], expected_flux_00, atol=1e-12)
+
+        # 2. Boundary diagonal entry of A~^T W_E + W_E A~
+        M = A_tilde.T @ W_E + W_E @ A_tilde
+        expected_M_00 = -(4.0 / theta) * (10 * order**2 - 10 * order + 3) / (3.0 * (2 * order - 1))
+        assert np.isclose(M[0, 0], expected_M_00, atol=1e-11)
+
+        # 3. Arrowhead block Schur complement
+        a = M[0, 0]
+        b = M[0, 1:]
+        M_int = M[1:, 1:]
+
+        # Interior block must be strictly negative definite
+        eig_int = np.linalg.eigvalsh(M_int)
+        assert np.max(eig_int) < 0.0
+
+        # Exact Schur complement identity: S = a - b^T M_int^{-1} b = -(2/theta)*(3K - 1)
+        schur_comp = a - b @ np.linalg.solve(M_int, b)
+        expected_schur = -(2.0 / theta) * (3 * order - 1)
+        assert np.isclose(schur_comp, expected_schur, atol=1e-10)
+        assert schur_comp < 0.0
+
+        # 4. Overall matrix strictly negative definite
+        eig_M = np.linalg.eigvalsh(M)
+        assert np.max(eig_M) < 0.0
+
+
 def test_exact_polynomial_transport_pde_residual():
     """Verifies dc/dt = A*c + B*u(t) satisfies transport PDE exactly for polynomials of degree <= K-1."""
     order = 8
