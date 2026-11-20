@@ -3,7 +3,7 @@
 This directory contains the complete LaTeX source for the technical report:
 
 > **Chebyshev State-Space Compression: Provably Stable Near-Minimax Continuous Memory in Sub-Kilobyte SRAM for Real-Time Edge Microcontrollers**  
-> *Author:* Ihsan Akmal (Independent Researcher)
+> *Author:* Ihsan Akmal Arrazi Sukandar (Independent Researcher)
 
 ---
 
