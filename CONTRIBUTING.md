@@ -11,7 +11,7 @@ This project bridges mathematical continuous-time state-space models and high-pe
 We designed the development environment to be lightweight, reproducible, and runnable even on CPU-only laptops without needing multi-gigabyte CUDA downloads or specialized hardware.
 
 ### Prerequisites
-- **Python**: Version 3.9 or higher (tested on 3.9, 3.10, 3.11, 3.12, 3.14).
+- **Python**: Version 3.10 or higher (tested on 3.10, 3.11, 3.12, 3.14).
 - **C Compiler**: Any standard C99 compiler:
   - **Linux**: `gcc` or `clang` (`sudo apt-get install build-essential`)
   - **macOS**: Apple Clang (`xcode-select --install`)
@@ -21,7 +21,7 @@ We designed the development environment to be lightweight, reproducible, and run
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-username/chebyshev-compressor.git
+git clone https://github.com/Genesis410/chebyshev-compressor.git
 cd chebyshev-compressor
 
 # 2. Create and activate a clean virtual environment

@@ -4,20 +4,26 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chebyshev-compressor"
-version = "0.1.0"
+version = "0.1.1"
 description = "Mathematical Model Distillation from Recurrent Networks to O(1) Memory Chebyshev State Space for TinyML"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
-    { name = "Chebyshev Team" }
+    { name = "Genesis410", email = "genesis410@users.noreply.github.com" }
 ]
-keywords = ["tinyml", "chebyshev", "state-space", "distillation", "embedded", "edge-ai", "lstm"]
+keywords = ["tinyml", "chebyshev", "state-space", "distillation", "embedded", "edge-ai", "lstm", "c99"]
 dependencies = [
     "torch>=2.0.0",
     "numpy>=1.24.0",
     "tqdm>=4.65.0"
 ]
+
+[project.urls]
+Homepage = "https://github.com/Genesis410/chebyshev-compressor"
+Repository = "https://github.com/Genesis410/chebyshev-compressor"
+Documentation = "https://github.com/Genesis410/chebyshev-compressor#readme"
+Issues = "https://github.com/Genesis410/chebyshev-compressor/issues"
 
 [project.optional-dependencies]
 dev = [

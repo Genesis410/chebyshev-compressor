@@ -327,9 +327,19 @@ def run_pytorch_benchmark(
 def compare_benchmarks(
     c_metrics: Dict[str, Union[int, float, str]],
     pytorch_metrics: Dict[str, Union[int, float]],
-    teacher_ram_bytes: int = 32768,
+    teacher_state_bytes: int = 512,
+    teacher_tflm_arena_bytes: int = 32768,
+    teacher_ram_bytes: Optional[int] = None,
 ) -> Dict[str, Union[float, str]]:
-    """Calculates audit comparison metrics and formats a transparent single-step + window summary table."""
+    """Calculates audit comparison metrics and formats a transparent single-step + window summary table.
+
+    Distinguishes:
+      1. Pure mathematical recurrent state vector (LSTM 2-layer H=32: 2*2*32*4 = 512 B vs Chebyshev 14x8x4 = 448 B).
+      2. Embedded runtime deployment SRAM (TensorFlow Lite Micro tensor arena: 32,768 B vs Chebyshev C99 engine: 608 B).
+    """
+    if teacher_ram_bytes is not None:
+        teacher_tflm_arena_bytes = teacher_ram_bytes
+
     c_lat_us = float(c_metrics["latency_us"])
     pt_lat_us = float(pytorch_metrics["latency_us"])
     c_persistent = int(c_metrics.get("persistent_state_bytes", c_metrics.get("ram_bytes", 448)))
@@ -337,7 +347,8 @@ def compare_benchmarks(
     c_total_sram = int(c_metrics.get("total_sram_bytes", c_persistent + c_stack))
 
     speedup_x = pt_lat_us / max(1e-9, c_lat_us)
-    ram_reduction_pct = max(0.0, (1.0 - (c_persistent / teacher_ram_bytes)) * 100.0)
+    state_reduction_pct = max(0.0, (1.0 - (c_persistent / teacher_state_bytes)) * 100.0)
+    arena_reduction_pct = max(0.0, (1.0 - (c_total_sram / teacher_tflm_arena_bytes)) * 100.0)
 
     c_win_us = float(c_metrics.get("window_latency_us", c_lat_us * 50.0))
     pt_win_us = float(pytorch_metrics.get("window_latency_us", pt_lat_us * 50.0))
@@ -348,23 +359,27 @@ def compare_benchmarks(
 ========================================================================================
                        CHEBYSHEV-COMPRESSOR AUDIT BENCHMARK
 ========================================================================================
-Metric                                PyTorch LSTM (1-thread)   C99 Engine (Standalone)   Gain
+Metric                                PyTorch LSTM (1-thread)   C99 Engine (Standalone)   Gain / Analysis
 ----------------------------------------------------------------------------------------
-Single-Step Latency*                  {pt_lat_us:12.2f} us          {c_lat_us:10.2f} us       {speedup_x:7.1f}x SPEEDUP
+Single-Step Host Latency*             {pt_lat_us:12.2f} us          {c_lat_us:10.2f} us       {speedup_x:7.1f}x SPEEDUP
 End-to-End Window Latency (T={seq_len:<2d})      {pt_win_us:12.2f} us          {c_win_us:10.2f} us       {window_speedup_x:7.1f}x SPEEDUP
-Throughput (streaming steps/sec)      {float(pytorch_metrics['throughput_steps_sec']):12.1f}             {float(c_metrics['throughput_steps_sec']):10.1f}
-Persistent Recurrent State (.bss)     {teacher_ram_bytes:12,d} bytes       {c_persistent:10,d} bytes   {ram_reduction_pct:7.1f}% RAM REDUCTION
-Active Call-Stack Scratch (local)              N/A             {c_stack:10,d} bytes
-Total Estimated Runtime SRAM                   N/A             {c_total_sram:10,d} bytes
-Dynamic Heap Allocation (`malloc`)          Enabled                  0 bytes (malloc-free C99)
+Host Throughput (streaming steps/sec) {float(pytorch_metrics['throughput_steps_sec']):12.1f}             {float(c_metrics['throughput_steps_sec']):10.1f}
+Persistent Recurrent State (.bss)     {teacher_state_bytes:12,d} bytes       {c_persistent:10,d} bytes   {state_reduction_pct:7.1f}% state reduction (512 vs 448 B)
+Active Call-Stack Scratch (local)              N/A             {c_stack:10,d} bytes       next_s[8] + h1[32]
+Total Estimated Runtime SRAM (vs TFLM){teacher_tflm_arena_bytes:12,d} bytes       {c_total_sram:10,d} bytes   {arena_reduction_pct:7.1f}% SRAM REDUCTION (32 KB arena vs 608 B)
+Dynamic Heap Allocation (`malloc`)          Enabled                  0 bytes       Deterministic real-time execution
 ========================================================================================
 * Note: Single-step PyTorch latency includes Python/dispatcher overhead; End-to-End
   Window Latency compares a full T={seq_len} sequence ingestion including state initialization.
+  Baseline state math: 2 layers x 2 states (h, c) x 32 hidden x 4 bytes = 512 bytes.
+  TFLM Tensor Arena: typical ~32 KB SRAM workspace required by TensorFlow Lite Micro LSTM op.
 """
     return {
         "speedup_x": speedup_x,
         "window_speedup_x": window_speedup_x,
-        "ram_reduction_pct": ram_reduction_pct,
+        "state_reduction_pct": state_reduction_pct,
+        "arena_reduction_pct": arena_reduction_pct,
+        "ram_reduction_pct": arena_reduction_pct,  # Backwards compatibility alias
         "persistent_state_bytes": float(c_persistent),
         "stack_scratch_bytes": float(c_stack),
         "total_sram_bytes": float(c_total_sram),
