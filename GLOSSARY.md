@@ -47,3 +47,23 @@ _Avoid_: Dynamic C++ Runtime, Inference Framework, Heavy Engine
 **Standalone Benchmark Harness**:
 A self-contained native C executable compiled directly with high optimization flags (`-O3`) to benchmark raw inference latency without Python FFI (`ctypes`/`cffi`) call-overhead distortions.
 _Avoid_: Python FFI benchmark, Ctypes loop
+
+**Deployment Sprint**:
+A fixed-scope commercial service converting a client's pre-trained PyTorch recurrent model into an optimized `chebyshev_engine.h` header with verified numerical parity and memory profiling on reference hardware, without undertaking custom physical sensor drivers or PCB debugging.
+_Avoid_: Custom Firmware Consulting, Hardware Bring-up, Full-stack IoT Contract
+
+**Reference Hardware Tier**:
+The standard, supported off-the-shelf microcontroller targets (e.g., ESP32 DevKit v1, STM32 Nucleo-F401RE) used for compiling, profiling, and verifying exported C99 headers using standardized in-memory test vectors.
+_Avoid_: Custom PCB, Proprietary Target, Hardware-in-the-Loop Testbed
+
+**Research Package**:
+A standardized commercial benchmarking service producing a 4–6 page comparative technical audit report and reproducibility bundle across polynomial orders $K \in \{4, 8, 16, 32\}$ on a client's anonymized dataset, without open-ended hyperparameter tuning.
+_Avoid_: Academic Consulting, Open-Ended R&D, Algorithm Invention
+
+**Zero-Retention Policy**:
+A binding commercial data privacy commitment guaranteeing that all client-provided model checkpoints and sanitized input tensors are permanently deleted from local developer storage within 14 calendar days post-delivery.
+_Avoid_: Data Warehousing, Proprietary Training Retention, Client Model Resale
+
+**Client Data Sanitization**:
+A standalone, zero-dependency client-side script that strips physical units and proprietary metadata, normalizing raw time-series tensors to zero-mean unit-variance before transmission.
+_Avoid_: Raw Sensor Upload, Unsanitized Industrial Log Transmission

@@ -190,9 +190,10 @@ int main(void) {
 }
 ```
 
-### Arduino / PlatformIO / ESP32 Example
+### Microcontroller Examples
 
-See [examples/arduino_cmapss/arduino_cmapss.ino](examples/arduino_cmapss/arduino_cmapss.ino) for a ready-to-flash sketch containing pre-compiled sensor readings, microsecond profiling, and serial output verification.
+- **3-Axis Bearing Vibration Monitoring**: [examples/esp32_vibration/esp32_vibration.ino](examples/esp32_vibration/esp32_vibration.ino) demonstrates rotating machinery anomaly tracking on 3 accelerometer channels with only **96 Bytes** persistent state RAM ($D_{\mathrm{in}} = 3, K = 8$).
+- **Multi-Sensor Turbofan Degradation**: [examples/arduino_cmapss/arduino_cmapss.ino](examples/arduino_cmapss/arduino_cmapss.ino) demonstrates 14-channel C-MAPSS continuous RUL streaming with **448 Bytes** persistent state RAM ($D_{\mathrm{in}} = 14, K = 8$).
 
 ---
 
@@ -279,11 +280,14 @@ with automatic fallback $\lambda = 1.0$ when distilling on unlabeled calibration
 │   └── cli.py                # Unified 'cheb' CLI entrypoint
 ├── docs/
 │   ├── THEORY.md             # Canonical CGR Spectral-SAT derivation & Lyapunov stability whitepaper
-│   ├── adr/                  # Architectural Decision Records (ADRs 0001 - 0008)
+│   ├── COMMERCIAL.md         # Commercial services, Deployment Sprint, & Zero-Retention SLA
+│   ├── adr/                  # Architectural Decision Records (ADRs 0001 - 0010)
 │   └── agents/               # Domain guidelines, triage roles, and issue specs
 ├── examples/
-│   └── arduino_cmapss/
-│       └── arduino_cmapss.ino# Ready-to-run Arduino / ESP32 edge deployment sketch
+│   ├── esp32_vibration/      # 3-axis bearing vibration anomaly monitoring (96 B state)
+│   └── arduino_cmapss/       # 14-channel turbofan RUL streaming sketch (448 B state)
+├── tools/
+│   └── sanitize_client_data.py # Client-side zero-dependency privacy & unit stripping script
 ├── scripts/
 │   ├── run_ablation.py       # Reproducible order K in {4, 8, 16, 32} ablation script
 │   ├── setup.sh              # 1-click Linux/macOS contributor bootstrap script
@@ -338,6 +342,15 @@ Key verified invariants:
 - Option A fast state precomputation equivalence, frozen $(\bar{A}, \bar{B})$, automatic unlabeled $\lambda = 1.0$ fallback, and disjoint held-out C-MAPSS engine splitting.
 - PyTorch vs. compiled C99 numerical parity ($\max |y_{\mathrm{PyTorch}} - y_{\mathrm{C}}| < 10^{-4}$) under both standard `-O2` and `-O3 -ffast-math` with injected `NaN`, `+Inf`, `-Inf`, and extreme spikes.
 - Strict zero-warning C99 compilation under `-std=c99 -Wall -Wextra -Werror -pedantic`.
+
+---
+
+## Commercial Support & Deployment Services
+
+Looking for customized model conversion, firmware profiling, or comparative baseline evaluation on your proprietary sensor streams? We offer standardized fixed-scope services under our [Commercial Services Guide](docs/COMMERCIAL.md):
+- **Deployment Sprint (US$79)**: 1 recurrent model converted to verified C99 engine + numerical parity & memory audit on reference MCUs (5–7 calendar days).
+- **Research Package (US$149)**: 4–6 page comparative technical audit report ($K \in \{4, 8, 16, 32\}$ vs baseline) + reproducibility bundle (7–10 calendar days).
+- **Zero-Retention Guarantee**: Client-side data sanitization with permanent 14-day data deletion SLA.
 
 ---
 
