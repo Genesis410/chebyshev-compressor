@@ -75,3 +75,8 @@ Desktop.ini
 data/
 benchmark_results_host.json
 scientific_benchmark_summary.json
+
+# Private Research & Technical Report
+report/
+.zenodo.json
+
